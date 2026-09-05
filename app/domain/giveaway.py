@@ -136,6 +136,14 @@ class GiveawayEngine:
         self.winners.clear()
 
     def snapshot(self) -> dict[str, object]:
+        return {
+            **self.overlay_snapshot(),
+            "participants": [
+                participant.display_name for participant in self.participants
+            ],
+        }
+
+    def overlay_snapshot(self) -> dict[str, object]:
         winners = [
             {
                 "twitch_user_id": winner.twitch_user_id,
@@ -149,8 +157,5 @@ class GiveawayEngine:
             "giveaway_id": self.giveaway_id,
             "lot": self.lot,
             "participant_count": len(self.participants),
-            "participants": [
-                participant.display_name for participant in self.participants
-            ],
             "winners": winners,
         }

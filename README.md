@@ -82,7 +82,6 @@ Un test local isolé a traité 5 000 requêtes HTTP avec une concurrence de 100 
 
 Avant une mise en production avec du trafic, il reste notamment à :
 
-- réduire les messages WebSocket pour ne plus diffuser toute la liste des participants ;
 - isoler les clients lents avec des files bornées et des délais d'envoi ;
 - passer SQLite en WAL et sortir ses écritures de la boucle asynchrone ;
 - garantir la cohérence entre SQLite et l'état mémoire en cas d'erreur ;

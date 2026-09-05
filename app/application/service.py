@@ -97,4 +97,4 @@ class GiveawayService:
         return giveaway_id
 
     async def _broadcast_state(self) -> None:
-        await self._overlay_connections.broadcast(self._engine.snapshot())
+        await self._overlay_connections.broadcast(self._engine.overlay_snapshot())

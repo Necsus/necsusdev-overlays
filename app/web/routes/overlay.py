@@ -32,7 +32,7 @@ def create_overlay_router(
         try:
             await connections.send_state(
                 websocket,
-                engine.snapshot(),
+                engine.overlay_snapshot(),
             )
 
             while True:

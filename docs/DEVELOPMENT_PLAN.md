@@ -228,7 +228,10 @@ Le nettoyage suit toujours l'ordre **remplacer, valider, puis supprimer** afin d
 
 ## 2. Stabilisation sous charge
 
-- [ ] Retirer la liste complète des participants des événements WebSocket de l'overlay.
+- [x] Retirer la liste complète des participants des événements WebSocket de l'overlay.
+  - `overlay_snapshot()` fournit l'état de rendu sans parcourir les participants ; `snapshot()` conserve son contrat complet.
+  - La connexion initiale et les diffusions utilisent l'instantané allégé, sans changement du frontend.
+  - Validation Python isolée : équivalence des champs conservés à 0, 1 et 10 000 participants, envois via un client factice, gagnant et remise à zéro. Enveloppe JSON mesurée à 132 octets pour 10 000 participants dans un état masqué sans gagnants ; ce contrôle n'est pas un test de charge ni une validation OBS.
 - [ ] Exposer les participants uniquement dans une API administrative paginée.
 - [ ] Sortir les diffusions WebSocket du verrou métier.
 - [ ] Utiliser une file bornée par streamer qui conserve uniquement l'état le plus récent.

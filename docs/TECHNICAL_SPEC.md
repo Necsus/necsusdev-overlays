@@ -532,7 +532,7 @@ La diffusion séquentielle actuelle est bloquante : 100 clients prenant chacun 1
 - limiter les connexions par streamer et la taille des messages entrants ;
 - utiliser une reconnexion exponentielle avec jitter dans le navigateur.
 
-L'événement d'overlay ne doit contenir que l'état, le lot, le nombre de participants et les gagnants. La liste complète des participants est réservée à une API administrative paginée. À titre de comparaison, l'instantané actuel atteint environ 126 Kio avec 10 000 participants.
+L'événement d'overlay contient désormais uniquement l'état, l'identifiant du giveaway, le lot, le nombre de participants et les gagnants. La connexion initiale et les diffusions utilisent `overlay_snapshot()`, qui ne construit pas la liste des participants. `snapshot()` conserve l'instantané complet pour les usages internes ; une API administrative paginée reste à implémenter. La taille du message ne croît plus avec le nombre de participants à nombre de gagnants constant.
 
 ### SQLite et cohérence
 
