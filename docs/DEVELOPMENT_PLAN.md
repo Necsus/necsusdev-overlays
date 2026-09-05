@@ -1,8 +1,30 @@
-# Plan de développement
+# NecsusDevOverlays — Plan de développement
 
-Plan pour faire évoluer le giveaway mono-streamer actuel vers une plateforme d'overlays Twitch extensible, puis vers un service multi-streamer utilisable simultanément depuis plusieurs chaînes.
+Plan pour faire évoluer NecsusDevOverlays, actuellement mono-streamer avec le plugin Giveaway, vers une plateforme d'overlays Twitch extensible, puis vers un service multi-streamer utilisable simultanément depuis plusieurs chaînes.
+
+## Identité de la plateforme
+
+- Nom public : **NecsusDevOverlays** ; dépôt GitHub renommé en `Necsus/necsusdev-overlays` et remote local `origin` actualisé.
+- Documentation, administration HTML et titre FastAPI renommés ; Giveaway reste le nom du plugin de tirage au sort.
+- Domaine, routes, commandes, noms de tables et chemins de données historiques conservés : aucun déplacement de base ni changement d'infrastructure.
+- Dossier de travail local renommé en `/home/necsus/dev/necsusdev-overlays`. Les références externes à l'ancien chemin et les lanceurs du virtualenv sont à vérifier après déplacement.
 
 > Avancement actuel : le parcours Twitch et l'administration OAuth mono-streamer fonctionnent sur `overlay.necsus.dev`. Le giveaway est entièrement isolé sous `/plugins/giveaway`, ses assets possèdent leur propre montage et sa source OBS est protégée par une clé révocable propre au streamer et au plugin. La prochaine priorité redevient la stabilisation avant le multi-streamer.
+
+## Fonctionnalité — inscriptions chronométrées
+
+- [x] `!gastart [secondes]` accepte une durée facultative entière de 1 à 604800 secondes ; les arguments invalides ne modifient pas l'état.
+- [x] Échéance UTC persistée dans `giveaways.closes_at`, colonne ajoutée de façon idempotente au démarrage.
+- [x] Tirage automatique sous verrou vers `WINNER`, puis tirages manuels supplémentaires possibles.
+- [x] Sans participant : archivage `CANCELLED` et masquage.
+- [x] Annulation après tirage manuel réussi ou arrêt ; nettoyage de la tâche à l'arrêt du service.
+- [x] Reprise après redémarrage et refus des inscriptions traitées après l'échéance.
+- [x] Compteur `#countdown` OBS calculé localement depuis l'échéance, sans événements serveur chaque seconde.
+- [x] Vérifications initiales isolées réussies ; le fichier de tests ajouté a ensuite été supprimé à la demande de l'utilisateur. Vérification ponctuelle de `!gastart` sans argument sur SQLite en mémoire : état `OPEN`, aucune échéance en mémoire, en base ou dans le payload OBS, et aucune tâche minuteur créée.
+- [x] Syntaxe JavaScript et `git diff --check` validés.
+- [ ] Validation visuelle et bout en bout dans Twitch/OBS ; vérifier le CSS personnalisé et la synchronisation des horloges.
+
+La borne de 7 jours protège des durées démesurées. Les tests utilisent une base en mémoire et ne constituent pas un test de charge. Les accès SQLite et les diffusions restent synchrones/sous verrou comme auparavant : leur optimisation reste une étape distincte.
 
 ## Étape terminée — plateforme d'overlays et accès OBS
 

@@ -69,6 +69,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         overlay_connections,
     )
 
+    giveaway_service.resume_timer()
+
     app.state.settings = settings
     app.state.database_connection = connection
     app.state.configuration = configuration
@@ -121,10 +123,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             try:
                 await twitch_oauth_client.close()
             finally:
+                await giveaway_service.close()
                 connection.close()
 
 
-app = FastAPI(title="Twitch Giveaway Overlay", lifespan=lifespan)
+app = FastAPI(title="NecsusDevOverlays", lifespan=lifespan)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(admin_router)

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from secrets import choice
 from uuid import uuid4
@@ -21,6 +22,7 @@ class Participant:
 class GiveawayEngine:
     def __init__(self) -> None:
         self.state: GiveawayState = GiveawayState.HIDDEN
+        self.closes_at: datetime | None = None
         self.giveaway_id: str | None = None
         self.lot: str | None = None
         self.participants: list[Participant] = []
@@ -122,6 +124,7 @@ class GiveawayEngine:
         winner = choice(eligible_participants)
         self.winners.append(winner)
         self.state = GiveawayState.WINNER
+        self.closes_at = None
 
         return winner
 
@@ -130,6 +133,7 @@ class GiveawayEngine:
             raise RuntimeError("There is no active giveaway")
 
         self.state = GiveawayState.HIDDEN
+        self.closes_at = None
         self.giveaway_id = None
         self.lot = None
         self.participants.clear()
@@ -156,6 +160,7 @@ class GiveawayEngine:
             "state": self.state.value,
             "giveaway_id": self.giveaway_id,
             "lot": self.lot,
+            "closes_at": self.closes_at.isoformat() if self.closes_at else None,
             "participant_count": len(self.participants),
             "winners": winners,
         }

@@ -1,6 +1,11 @@
-# Twitch Giveaway Overlay
+# NecsusDevOverlays
 
-Overlay de giveaway pour Twitch, affiché dans OBS comme source navigateur et piloté directement depuis le chat.
+Plateforme d'overlays pour les streams Twitch, affichés dans OBS et pilotés depuis le chat, avec une administration commune.
+
+- **Giveaway** : plugin opérationnel de tirage au sort, manuel ou chronométré.
+- **Chat** : plugin d'affichage du chat en préparation.
+
+Le dépôt porte le nom `necsusdev-overlays`. Le domaine `overlay.necsus.dev` et les routes `/plugins/<plugin>` restent inchangés. Les noms techniques historiques tels que `giveaway.sqlite3` sont conservés pour préserver les installations existantes.
 
 > Le parcours Twitch complet est fonctionnel avec un bot global fixe et un streamer actif choisi dynamiquement depuis `/admin` avec Twitch OAuth. Le giveaway est isolé sous `overlay.necsus.dev/plugins/giveaway` et sa source OBS est protégée par une clé révocable. Plusieurs plugins et streamers simultanés viendront ensuite.
 
@@ -20,7 +25,7 @@ Overlay de giveaway pour Twitch, affiché dans OBS comme source navigateur et pi
 | Commande | Accès | Effet |
 |---|---|---|
 | `!galot <lot>` | Streamer | Prépare le lot et affiche l’overlay. |
-| `!gastart` | Streamer | Ouvre les inscriptions. |
+| `!gastart [secondes]` | Streamer | Ouvre les inscriptions, avec une échéance facultative et un tirage automatique. |
 | `!join` | Viewer | Inscrit le viewer une seule fois. |
 | `!gapull` | Streamer | Ferme les inscriptions au premier tirage, puis ajoute un gagnant inédit. |
 | `!gastop` | Streamer | Termine le giveaway et masque l’overlay. |
@@ -32,6 +37,14 @@ HIDDEN --!galot--> WAITING --!gastart--> OPEN --!gapull--> WINNER
 ```
 
 Dans l'état `WINNER`, chaque nouveau `!gapull` ajoute un gagnant qui n'a pas encore gagné le lot, jusqu'à épuisement des participants ou `!gastop`.
+
+### Tirage automatique
+
+`!galot Clavier mécanique` puis `!gastart 60` ouvre les inscriptions pour 60 secondes. La durée est un entier entre 1 et 604800 secondes (7 jours). Sans durée, le fonctionnement reste manuel.
+
+À l'échéance, un gagnant est tiré et l'état devient `WINNER`. Les `!gapull` suivants ajoutent des gagnants inédits. Sans participant, le giveaway est archivé comme `CANCELLED` et masqué. Un tirage manuel réussi ou `!gastop` annule le minuteur.
+
+L'échéance UTC est persistée : après redémarrage, le minuteur reprend et une échéance dépassée est traitée. Les inscriptions sont refusées si leur traitement intervient après l'échéance. OBS affiche les secondes restantes dans `#countdown` ; son horloge doit être à l'heure. Le serveur reste seul responsable du tirage.
 
 ## Architecture
 
@@ -158,6 +171,7 @@ Le document expose les identifiants CSS suivants :
 - `#status`
 - `#participants`
 - `#winner`
+- `#countdown` (masqué en mode manuel et après clôture)
 
 Le rendu visuel est défini dans le champ **CSS personnalisé** de la source OBS.
 

@@ -1,8 +1,8 @@
-# Plan de développement — Overlay de chat Twitch
+# NecsusDevOverlays — Plan du plugin Chat
 
 ## 1. Objectif
 
-Ajouter un second plugin OBS affichant en temps réel le chat du streamer actif, indépendamment du giveaway.
+Ajouter à NecsusDevOverlays un second plugin OBS affichant en temps réel le chat du streamer actif, indépendamment du giveaway.
 
 URL cible :
 

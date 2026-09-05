@@ -1,8 +1,8 @@
-# Spécification technique
+# NecsusDevOverlays — Spécification technique
 
 ## 1. Objectif
 
-Construire sur la DevBox une plateforme centrale d'overlays Twitch extensible, dont le giveaway constitue le premier plugin. Plusieurs streamers pourront s'authentifier avec Twitch, activer différents plugins et utiliser simultanément leurs propres overlays. Les PC du réseau local ou autorisés par Tailscale pourront accéder :
+Construire sur la DevBox NecsusDevOverlays, une plateforme centrale d'overlays Twitch extensible, dont Giveaway constitue le premier plugin. Plusieurs streamers pourront s'authentifier avec Twitch, activer différents plugins et utiliser simultanément leurs propres overlays. Les PC du réseau local ou autorisés par Tailscale pourront accéder :
 
 - à des overlays OBS isolés par streamer et par plugin ;
 - à une page d'administration commune authentifiée avec Twitch ;
@@ -213,6 +213,18 @@ Règles complémentaires :
 - chaque gagnant est choisi côté serveur avec `secrets.choice` parmi les participants qui n'ont pas encore gagné ;
 - un verrou asynchrone protège `!join`, `!gapull` et `!gastop` contre les traitements concurrents ;
 - chaque transition valide déclenche une sauvegarde SQLite et une diffusion WebSocket.
+
+### Inscriptions chronométrées
+
+`!gastart [secondes]` accepte une durée facultative entière entre 1 et 604800 secondes. Une durée invalide est refusée avant l'ouverture. Sans argument, aucune échéance n'est définie.
+
+La colonne nullable `giveaways.closes_at` conserve une échéance UTC ISO 8601. Une migration additive idempotente l'ajoute aux bases existantes. À la restauration d'un giveaway `OPEN`, le service reprogramme une tâche asynchrone ; si l'échéance est dépassée, elle est traitée immédiatement.
+
+La tâche prend le même verrou que les commandes. À l'échéance, elle tire un gagnant et passe en `WINNER`, ou archive en `CANCELLED` et masque si personne n'est inscrit. Chaque inscription vérifie aussi l'échéance sous verrou pour refuser les messages traités trop tard. Un `!gapull` réussi ou `!gastop` annule le minuteur et efface l'échéance persistée. Les tirages suivants restent possibles en `WINNER`.
+
+En cas d'échec SQL du tirage, la mutation mémoire du gagnant est annulée ; la tâche automatique journalise l'erreur et réessaie après une seconde. Une fermeture normale du service annule et attend la tâche avant de fermer SQLite, sans effacer l'échéance persistée.
+
+L'événement `giveaway.state` inclut `closes_at` (date ISO 8601 ou `null`). OBS calcule les secondes restantes dans `#countdown`, sans piloter le tirage. Le compteur est masqué hors `OPEN` ou sans échéance. Son exactitude visuelle dépend de l'horloge du client ; le serveur reste l'autorité.
 
 ## 7. Overlay HTML et clé OBS
 

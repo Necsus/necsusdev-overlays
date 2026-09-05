@@ -120,4 +120,11 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         )
         cursor.close()
 
+    cursor = connection.execute("SELECT name FROM pragma_table_info('giveaways')")
+    columns = {row[0] for row in cursor.fetchall()}
+    cursor.close()
+    if "closes_at" not in columns:
+        cursor = connection.execute("ALTER TABLE giveaways ADD COLUMN closes_at TEXT")
+        cursor.close()
+
     connection.commit()

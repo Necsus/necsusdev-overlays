@@ -19,16 +19,20 @@ def create_giveaway(connection: sqlite3.Connection, giveaway_id: str, lot: str) 
     connection.commit()
 
 
-def open_giveaway(connection: sqlite3.Connection, giveaway_id: str) -> None:
+def open_giveaway(
+    connection: sqlite3.Connection,
+    giveaway_id: str,
+    closes_at: datetime | None = None,
+) -> None:
     opened_at = datetime.now(UTC).isoformat()
 
     cursor = connection.execute(
         """
         UPDATE giveaways
-        SET status = 'OPEN', opened_at = ?
+        SET status = 'OPEN', opened_at = ?, closes_at = ?
         WHERE id = ? AND status = 'WAITING'
         """,
-        (opened_at, giveaway_id),
+        (opened_at, closes_at.isoformat() if closes_at else None, giveaway_id),
     )
 
     updated_rows = cursor.rowcount
@@ -88,6 +92,7 @@ def draw_giveaway(
             UPDATE giveaways
             SET
                 status = 'WINNER',
+                closes_at = NULL,
                 drawn_at = COALESCE(drawn_at, ?)
             WHERE id = ? AND status IN ('OPEN', 'WINNER')
             """,
@@ -146,6 +151,7 @@ def stop_giveaway(
                 WHEN status = 'WINNER' THEN 'COMPLETED'
                 ELSE 'CANCELLED'
             END,
+            closes_at = NULL,
             stopped_at = ?
         WHERE id = ?
             AND status IN ('WAITING', 'OPEN', 'WINNER')
@@ -168,7 +174,7 @@ def restore_active_giveaway(
 ) -> bool:
     cursor = connection.execute(
         """
-        SELECT id, lot, status
+        SELECT id, lot, status, closes_at
         FROM giveaways
         WHERE status IN ('WAITING', 'OPEN', 'WINNER')
         ORDER BY created_at DESC
@@ -225,5 +231,8 @@ def restore_active_giveaway(
         participants=participants,
         winner_user_ids=winner_user_ids,
     )
+
+    if engine.state is GiveawayState.OPEN and giveaway_row["closes_at"] is not None:
+        engine.closes_at = datetime.fromisoformat(str(giveaway_row["closes_at"]))
 
     return True

@@ -55,7 +55,7 @@ class GiveawayCommandHandler:
         ):
             return CommandResult(False, "This command is reserved for the broadcaster")
 
-        if command != "galot" and argument:
+        if command not in {"galot", "gastart"} and argument:
             return CommandResult(False, f"{self._prefix}{command} takes no argument")
 
         try:
@@ -87,7 +87,14 @@ class GiveawayCommandHandler:
                 await self._service.set_lot(argument)
                 return CommandResult(True, "The giveaway is waiting")
             case "gastart":
-                await self._service.start()
+                duration = None
+                if argument:
+                    if not argument.isascii() or not argument.isdecimal():
+                        raise ValueError("Duration must be a positive integer in seconds")
+                    duration = int(argument)
+                    if not 1 <= duration <= 604800:
+                        raise ValueError("Duration must be between 1 and 604800 seconds")
+                await self._service.start(duration)
                 return CommandResult(True, "The giveaway is open")
             case "join":
                 was_added = await self._service.join(
