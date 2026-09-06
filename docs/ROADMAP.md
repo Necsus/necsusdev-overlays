@@ -169,7 +169,71 @@ Référence de faisabilité : [événement EventSub et autorisations Twitch](htt
 
 **Terminé quand :** une utilisation réelle affiche le bon pseudo, la bonne récompense et son coût dans une source OBS authentifiée et stylable, selon la règle d'affichage retenue, sans action métier sur la récompense ni diffusion croisée. Tout nouveau fichier de tests ou script nécessite un accord spécifique.
 
-## 7. Exploitation durable
+## 7. Collaborations entreprises — suivi de campagnes et objectifs OBS
+
+**Idée prévue, non implémentée.** Permettre à une entreprise de mesurer une collaboration autour d'un jeu, puis d'afficher des objectifs dans OBS. Le suivi est un service de campagnes ; le plugin OBS n'en est que la vue. Viser une intégration simple et extensible, sans promettre une compatibilité universelle : les conversions mesurables dépendent des interfaces et données fournies par l'entreprise.
+
+### Cible retenue
+
+- Proposer des liens de campagne globaux et des liens propres à chaque streamer, redirigeant vers une destination configurée pour la campagne : site, boutique ou jeu.
+- Accepter des métriques personnalisées : clics/visites, inscriptions, installations, actions dans le jeu et valeurs cumulées (temps de jeu, points, montants avec unité/devise explicite).
+- Accepter soit des résultats agrégés par campagne/streamer, soit des événements associés à un identifiant de suivi pseudonyme. Ne pas imposer la collecte de l'identité réelle du joueur.
+- Permettre plusieurs objectifs configurables : libellé, métrique, cible, unité, période et périmètre campagne ou streamer. Une entreprise ne peut partager un total global avec un streamer que de manière explicite.
+- Prévoir une source OBS indépendante avec clé propre, lecture seule et isolation par streamer/campagne. Proposition de présentation : libellé, valeur, cible et barre de progression ; CSS personnalisé collé dans OBS, sans étendre automatiquement la bibliothèque Giveaway.
+
+### Trois modes d'intégration à proposer
+
+| Mode | Fonction | Contraintes principales |
+|---|---|---|
+| Événements entrants | L'entreprise envoie les actions confirmées vers notre endpoint authentifié. | Identifiant d'événement stable, authentification, validation et déduplication persistante. |
+| Interrogation de leur API | Notre service récupère les événements ou compteurs sur les endpoints de l'entreprise. | Authentification, pagination/curseur, fréquence, limites de débit et reprise. |
+| Envois vers leur API | Notre service transmet les événements observés et résultats autorisés vers leurs endpoints. | Sélection des données, authentification, livraisons suivies et réessais bornés. |
+
+- Définir un contrat interne versionné et une correspondance configurable des champs entrants/sortants : identifiants, type d'événement, date UTC, campagne, streamer facultatif, identifiant de suivi facultatif, valeur et unité. La configuration ne doit pas permettre d'exécuter du code arbitraire.
+- Commencer par HTTPS et JSON avec des exemples documentés ; étendre formats et méthodes d'authentification à partir des besoins des entreprises pilotes. Distinguer ce qui est configurable sans code de ce qui exige un nouvel adaptateur ; ne pas construire un moteur d'intégration universel dès la première tranche.
+- Fournir progressivement le nécessaire à l'intégration : contrat d'API, exemples fictifs de requêtes/réponses et d'erreurs, procédure de configuration des secrets, environnement de validation isolé et état des échanges sans secrets. Tout nouveau fichier de script, exemple exécutable ou test nécessite un accord spécifique.
+
+### Mesure et attribution fiables
+
+```text
+Lien global ou streamer → redirection vers l'entreprise
+                              └── action confirmée par son système
+                                      → événement entrant / API interrogée
+                                      → normalisation et attribution
+                                      → résultats persistés → objectifs OBS
+                                                           └── API de l'entreprise, si configurée
+```
+
+- Un accès au lien prouve au mieux une requête de redirection, pas une visite humaine, une installation ou une action dans le jeu. Distinguer clics bruts, clics filtrés et conversions déclarées par l'entreprise ; les robots et préchargements peuvent gonfler les clics. Une signature authentifie l'émetteur, pas la réalité commerciale de l'action.
+- Pour le suivi individuel, transmettre un identifiant opaque à l'entreprise, qui le renvoie avec la conversion. Ne jamais y placer de clé OBS ou de secret. Les parcours boutique, installation et multi-appareils peuvent perdre cet identifiant : prévoir des événements non attribués plutôt qu'inventer une correspondance.
+- Définir avant implémentation la fenêtre et la règle d'attribution (premier/dernier clic, par exemple), le traitement des liens globaux sans streamer et l'unicité attendue par métrique. Ne pas assimiler clic, joueur unique et action répétable.
+- Déclarer chaque métrique comme comptage d'événements, somme de valeurs ou instantané agrégé. Ne pas additionner les relevés successifs d'un compteur total, ni compter deux fois une conversion reçue par webhook et par interrogation API ; désigner une source de référence ou une clé de rapprochement fiable.
+- Persister événements acceptés ou relevés nécessaires, clés de déduplication, résultats et curseurs avec migrations versionnées. Définir les règles pour événements tardifs/désordonnés, corrections, annulations et changements de configuration ; ne pas modifier silencieusement le sens des résultats passés.
+- Les réessais doivent être idempotents, y compris après redémarrage. Pour les envois sortants, conserver un état de livraison et une clé stable ; le destinataire doit aussi dédupliquer. Ne pas promettre une livraison exactement une fois ni un rattrapage si la source ne le permet pas ; éviter les boucles de renvoi entre intégrations.
+
+### Entreprises, permissions et sécurité
+
+- Séparer entreprise, campagne, participation du streamer, intégration et objectif. Définir les droits de gestion, de consultation et d'association d'un streamer à une campagne ; vérifier chaque accès côté serveur. Une clé d'intégration entreprise n'est ni une session streamer ni une clé OBS.
+- **Progression d'accès proposée, à valider avec les pilotes :** configuration accompagnée, puis espace entreprise autonome sur invitation, puis inscription libre si utile avec vérification et prévention des abus. Garder ces possibilités ouvertes sans affirmer connaître les modes les plus utilisés avant retour terrain.
+- Fournir des résultats consultables/exportables limités aux campagnes autorisées, avec définition des métriques, source et fraîcheur des données. OBS ne reçoit que les objectifs et agrégats explicitement publiables, jamais les événements individuels ou les identifiants de suivi.
+- Authentifier les événements entrants ; prévoir protection contre le rejeu, validation des dates et signatures lorsqu'elles sont utilisées, rotation/révocation des secrets et quotas. Les identifiants de campagne/streamer du payload doivent appartenir au périmètre autorisé de l'intégration.
+- Pour les endpoints personnalisables, prévenir les requêtes vers le réseau interne (SSRF) : HTTPS, destinations autorisées, contrôle des résolutions DNS et redirections, exclusion des adresses privées/locales et services de métadonnées. Borner délais, taille des réponses, concurrence et réessais ; ne jamais relayer des secrets vers une autre destination.
+- Les liens publics doivent pointer uniquement vers des destinations de campagne validées, sans paramètre permettant une redirection arbitraire. Séparer ces liens des accès administratifs et OBS.
+- Minimiser les données et journaux ; aucun secret dans une URL, un export ou un événement OBS. Un identifiant pseudonyme reste potentiellement une donnée personnelle : cadrer information/consentement lorsque requis, responsabilités entreprise/service, conservation, suppression et accès avant un usage réel. Pas de fingerprinting ni de rapprochement interentreprises implicite.
+- **Prérequis avant un pilote externe :** hébergement et exposition HTTPS adaptés, sauvegarde/restauration et étude de protection des données. Le service actuel est privé sur la DevBox ; cette roadmap n'autorise aucune modification réseau, ouverture publique ou activation de Funnel.
+
+### Progression
+
+1. Recueillir un exemple fictif d'événement et un parcours de conversion auprès d'une entreprise pilote ; préciser métriques, attribution, droits et limites. Utiliser un format interne commun, pas des tables ou routes métier entièrement différentes par entreprise.
+2. **Première tranche retenue : lien → événements entrants → objectifs OBS.** Sur données temporaires, configurer une entreprise et une campagne, produire un lien global et un lien streamer, recevoir une conversion authentifiée, la persister une seule fois et actualiser plusieurs objectifs. Aucun SDK, portail complet ni connecteur universel requis pour cette tranche.
+3. Contrôler les doublons et rejeux, événements invalides/tardifs, redémarrage, révocation, isolation entre deux entreprises et deux streamers, destinations interdites et indisponibilité d'un destinataire. Vérifier que les erreurs d'intégration ne bloquent pas Giveaway, Chat ou Points de chaîne.
+4. Ajouter l'interrogation API puis les envois sortants avec état de synchronisation/livraison, en validant aussi les compteurs agrégés et les corrections. L'ordre entre ces deux modes pourra être ajusté au besoin pilote.
+5. Faciliter la configuration autonome, la consultation/export des résultats et le diagnostic ; confirmer avec une seconde entreprise qu'une intégration compatible se configure sans modifier le code métier.
+6. Valider réellement le parcours entreprise → service → OBS et son CSS ; distinguer simulation locale, contrôle d'API et pilote externe autorisé. Documenter les métriques non disponibles ou les limites d'attribution constatées.
+
+**Première tranche terminée quand :** une conversion fictive attribuée au bon lien fait progresser les bons objectifs OBS, sans double comptage après réessai/redémarrage ni accès croisé. **Cible validée quand :** les trois modes fonctionnent sur des scénarios convenus, les résultats sont explicables et exportables, et un pilote réel confirme le parcours sans promettre un suivi que l'entreprise ne peut fournir.
+
+## 8. Exploitation durable
 
 - Déclarer l'environnement Python et le service applicatif systemd dans NixOS ; conserver un worker et prévoir une limite de fichiers ouverts adaptée.
 - Automatiser les sauvegardes cohérentes des données et documenter leur restauration.
