@@ -171,9 +171,32 @@ Référence de faisabilité : [événement EventSub et autorisations Twitch](htt
 
 ## 7. Collaborations entreprises — suivi de campagnes et objectifs OBS
 
-**Idée prévue, non implémentée.** Permettre à une entreprise de mesurer une collaboration autour d'un jeu, puis d'afficher des objectifs dans OBS. Le suivi est un service de campagnes ; le plugin OBS n'en est que la vue. Viser une intégration simple et extensible, sans promettre une compatibilité universelle : les conversions mesurables dépendent des interfaces et données fournies par l'entreprise.
+**Idée prévue, non implémentée.** Fournir aux entreprises une API qu'elles appellent aux étapes choisies de leurs workflows pour faire progresser des objectifs dans OBS : jeu vidéo, site marchand ou autre collaboration, ponctuelle ou mensuelle. L'entreprise confirme et attribue l'action ; notre service traite sa déclaration et affiche les résultats. Il ne détecte pas lui-même tous les téléchargements ou achats.
 
-### Cible retenue
+### MVP prioritaire — événements entreprise et compteurs OBS
+
+```text
+Action confirmée par le système de l'entreprise
+    → appel serveur authentifié vers notre API
+    → validation et déduplication persistante
+    → compteur de l'objectif pour la bonne période → OBS
+```
+
+- Configurer plusieurs objectifs : téléchargements, personnes ayant terminé un tutoriel, acheteurs d'un pack de bienvenue ou commandes payées. L'entreprise choisit le déclencheur ; libellé, cible et type d'événement sont configurables sans modifier notre code métier. Les montants cumulés sont prévus dans le parcours e-commerce, après validation des compteurs simples.
+- **Contrat proposé :** un endpoint commun d'événements versionné plutôt qu'une route codée par entreprise ou objectif. Chaque événement porte un identifiant stable, un type configuré, sa date et les références convenues de campagne/streamer. La clé identifie l'intégration ; le serveur vérifie les références et refuse les types non configurés.
+- Dans la première tranche, un événement accepté contribue de `+1` selon la règle de l'objectif, pas d'un incrément arbitraire fourni par le client. Distinguer le réessai d'un événement du retour d'une même personne : l'identifiant d'événement déduplique les réessais ; pour les personnes uniques, convenir d'un identifiant opaque stable limité à l'intégration ou d'une garantie d'unicité assurée par l'entreprise. L'unicité métier porte sur l'objectif et la période ; aucun email ou pseudo réel n'est requis.
+- Enregistrer réception et effet sur le compteur dans une même transaction avant acquittement. Un réessai identique ne modifie rien ; le même identifiant avec un contenu différent est refusé. Documenter les réponses accepté/déjà traité/refusé et les conditions de réessai.
+- Appels depuis le backend ou un outil serveur de l'entreprise ; aucune clé secrète dans le jeu distribué, le navigateur du client ou le CSS OBS. Réutiliser les garde-fous d'authentification et d'isolation décrits plus bas.
+- L'entreprise transmet l'attribution convenue à partir d'un lien, d'un code promotionnel ou de son propre système. Notre service ne devine pas le streamer ; un événement sans attribution exploitable ne doit pas alimenter arbitrairement un objectif individuel.
+- Définir précisément chaque action : téléchargement terminé, installation et premier lancement sont distincts ; panier créé, commande passée et paiement confirmé aussi. Convenir des corrections, remboursements et événements reçus après la fin de période avant un usage réel, sans construire un moteur de workflow générique.
+- Conserver des compteurs par période, sans remise à zéro destructive. OBS reçoit l'état des objectifs autorisés au chargement et à la reconnexion, puis leurs mises à jour ; il ne calcule pas les totaux à partir d'événements bruts. Le CSS reste collé dans le champ personnalisé d'OBS comme Giveaway.
+- Fournir au pilote un accès d'intégration confidentiel, la liste des événements/objectifs configurés, une documentation des appels et erreurs, un exemple fictif de payload et un moyen de validation isolé. Aucun SDK, connecteur Steam/mobile/e-commerce, portail complet ou bilan marketing avancé requis pour cette tranche.
+
+**Critère du MVP :** une entreprise peut déclencher les compteurs depuis ses workflows, réessayer sans double comptage et retrouver les bonnes valeurs après redémarrage ou changement de période ; OBS ne reçoit que les objectifs autorisés. Notre garantie concerne le traitement des déclarations, pas la vérification indépendante de l'achat ou du téléchargement.
+
+### Extensions et capacités transversales
+
+Les capacités ci-dessous restent une direction produit, **pas encore des besoins clients validés**. Les cinq parcours métier servent à explorer les extensions ; il n'est pas nécessaire de les développer tous pour commencer avec une entreprise capable d'envoyer ses événements.
 
 - Proposer des liens de campagne globaux et des liens propres à chaque streamer, redirigeant vers une destination configurée pour la campagne : site, boutique ou jeu.
 - Accepter des métriques personnalisées : clics/visites, inscriptions, installations, actions dans le jeu et valeurs cumulées (temps de jeu, points, montants avec unité/devise explicite).
@@ -181,7 +204,7 @@ Référence de faisabilité : [événement EventSub et autorisations Twitch](htt
 - Permettre plusieurs objectifs configurables : libellé, métrique, cible, unité, période et périmètre campagne ou streamer. Une entreprise ne peut partager un total global avec un streamer que de manière explicite.
 - Prévoir une source OBS indépendante avec clé propre, lecture seule et isolation par streamer/campagne. Proposition de présentation : libellé, valeur, cible et barre de progression ; CSS personnalisé collé dans OBS, sans étendre automatiquement la bibliothèque Giveaway.
 
-### Trois modes d'intégration à proposer
+### Modes d'intégration — entrant d'abord, autres modes ultérieurs
 
 | Mode | Fonction | Contraintes principales |
 |---|---|---|
@@ -206,7 +229,7 @@ Lien global ou streamer → redirection vers l'entreprise
 
 - Un accès au lien prouve au mieux une requête de redirection, pas une visite humaine, une installation ou une action dans le jeu. Distinguer clics bruts, clics filtrés et conversions déclarées par l'entreprise ; les robots et préchargements peuvent gonfler les clics. Une signature authentifie l'émetteur, pas la réalité commerciale de l'action.
 - Pour le suivi individuel, transmettre un identifiant opaque à l'entreprise, qui le renvoie avec la conversion. Ne jamais y placer de clé OBS ou de secret. Les parcours boutique, installation et multi-appareils peuvent perdre cet identifiant : prévoir des événements non attribués plutôt qu'inventer une correspondance.
-- Définir avant implémentation la fenêtre et la règle d'attribution (premier/dernier clic, par exemple), le traitement des liens globaux sans streamer et l'unicité attendue par métrique. Ne pas assimiler clic, joueur unique et action répétable.
+- Documenter avec l'entreprise la fenêtre et la règle d'attribution qu'elle applique (code promo, premier/dernier clic ou règle interne), ainsi que la priorité si plusieurs méthodes coexistent. Recevoir une attribution finale, sans compter deux fois une commande liée à un code et un lien. Définir le traitement des liens globaux sans streamer et l'unicité par métrique ; ne pas assimiler clic, personne unique et action répétable.
 - Déclarer chaque métrique comme comptage d'événements, somme de valeurs ou instantané agrégé. Ne pas additionner les relevés successifs d'un compteur total, ni compter deux fois une conversion reçue par webhook et par interrogation API ; désigner une source de référence ou une clé de rapprochement fiable.
 - Persister événements acceptés ou relevés nécessaires, clés de déduplication, résultats et curseurs avec migrations versionnées. Définir les règles pour événements tardifs/désordonnés, corrections, annulations et changements de configuration ; ne pas modifier silencieusement le sens des résultats passés.
 - Les réessais doivent être idempotents, y compris après redémarrage. Pour les envois sortants, conserver un état de livraison et une clé stable ; le destinataire doit aussi dédupliquer. Ne pas promettre une livraison exactement une fois ni un rattrapage si la source ne le permet pas ; éviter les boucles de renvoi entre intégrations.
@@ -222,16 +245,97 @@ Lien global ou streamer → redirection vers l'entreprise
 - Minimiser les données et journaux ; aucun secret dans une URL, un export ou un événement OBS. Un identifiant pseudonyme reste potentiellement une donnée personnelle : cadrer information/consentement lorsque requis, responsabilités entreprise/service, conservation, suppression et accès avant un usage réel. Pas de fingerprinting ni de rapprochement interentreprises implicite.
 - **Prérequis avant un pilote externe :** hébergement et exposition HTTPS adaptés, sauvegarde/restauration et étude de protection des données. Le service actuel est privé sur la DevBox ; cette roadmap n'autorise aucune modification réseau, ouverture publique ou activation de Funnel.
 
-### Progression
+### Découverte métier avec le manager — avant développement
 
-1. Recueillir un exemple fictif d'événement et un parcours de conversion auprès d'une entreprise pilote ; préciser métriques, attribution, droits et limites. Utiliser un format interne commun, pas des tables ou routes métier entièrement différentes par entreprise.
-2. **Première tranche retenue : lien → événements entrants → objectifs OBS.** Sur données temporaires, configurer une entreprise et une campagne, produire un lien global et un lien streamer, recevoir une conversion authentifiée, la persister une seule fois et actualiser plusieurs objectifs. Aucun SDK, portail complet ni connecteur universel requis pour cette tranche.
-3. Contrôler les doublons et rejeux, événements invalides/tardifs, redémarrage, révocation, isolation entre deux entreprises et deux streamers, destinations interdites et indisponibilité d'un destinataire. Vérifier que les erreurs d'intégration ne bloquent pas Giveaway, Chat ou Points de chaîne.
-4. Ajouter l'interrogation API puis les envois sortants avec état de synchronisation/livraison, en validant aussi les compteurs agrégés et les corrections. L'ordre entre ces deux modes pourra être ajusté au besoin pilote.
-5. Faciliter la configuration autonome, la consultation/export des résultats et le diagnostic ; confirmer avec une seconde entreprise qu'une intégration compatible se configure sans modifier le code métier.
-6. Valider réellement le parcours entreprise → service → OBS et son CSS ; distinguer simulation locale, contrôle d'API et pilote externe autorisé. Documenter les métriques non disponibles ou les limites d'attribution constatées.
+Un manager et des collaborations passées, en cours ou à venir sont disponibles pour explorer une option dans le package commercial. Cela donne accès à des retours terrain, mais ne démontre pas encore une demande ni une volonté de payer.
 
-**Première tranche terminée quand :** une conversion fictive attribuée au bon lien fait progresser les bons objectifs OBS, sans double comptage après réessai/redémarrage ni accès croisé. **Cible validée quand :** les trois modes fonctionnent sur des scénarios convenus, les résultats sont explicables et exportables, et un pilote réel confirme le parcours sans promettre un suivi que l'entreprise ne peut fournir.
+1. Reconstituer avec le manager une ancienne collaboration à partir d'un brief et d'un bilan anonymisés : objectif de l'entreprise, engagements du streamer, outils utilisés, données obtenues, travail manuel et décision finale. Ne pas copier de contrats, secrets ou données personnelles dans le dépôt.
+2. Interroger progressivement les interlocuteurs des cinq catégories ci-dessous à partir d'une campagne réelle : « Quel résultat vouliez-vous ? », « Qu'avez-vous pu mesurer ? », « Qu'est-ce qui vous a manqué ? », « Qui peut donner accès aux données et avec quel effort ? ». Distinguer entreprise acheteuse, manager opérateur, développeur intégrateur et streamer utilisateur.
+3. Pour chaque catégorie, consigner les besoins comme **hypothèses / confirmés / non prioritaires**, avec le contexte anonymisé et les contradictions rencontrées. Un seul pilote ne valide pas tout un segment.
+4. Choisir une collaboration pilote selon le besoin concret, les données accessibles, l'effort d'intégration et le calendrier. Les cinq parcours restent ouverts ; leur ordre ci-dessous n'est ni une priorité de développement ni un classement des usages du marché. L'exploration des extensions ne bloque pas le MVP par événements entrants.
+5. Faire valider un exemple fictif de bilan et d'objectifs OBS avant de construire les connecteurs. Séparer ce qui aide l'entreprise à décider de ce qui anime la communauté à l'écran.
+
+**Terminé quand :** le manager et une entreprise pilote ont défini les objectifs, les déclencheurs, l'attribution, les périodes, l'unicité et l'effort d'appel de notre API. Si l'entreprise ne peut pas envoyer d'événements, explorer un import comme extension et demander confirmation avant de changer le MVP ; ne pas élargir silencieusement son périmètre.
+
+### Parcours A — Studios indépendants sur Steam
+
+**Hypothèse à vérifier :** montrer l'intérêt généré par une collaboration (wishlists, démos lorsque mesurables, achats) sans demander une intégration dans le jeu.
+
+1. Identifier la phase du jeu : annonce, pré-lancement, démo ou lancement ; choisir un indicateur principal et vérifier sa disponibilité réelle dans les rapports du studio.
+2. Préparer des liens UTM cohérents par campagne, streamer et emplacement. Explorer l'import d'un export CSV Steamworks avec aperçu, validation des colonnes et réimport sans double comptage ; ne pas supposer l'existence d'une API adaptée ni demander les identifiants Steam du studio.
+3. Produire un bilan séparant clics de nos liens, visites et conversions attribuées par Steam. Afficher les objectifs autorisés avec la date de mise à jour ; ne pas faire passer les données différées pour du temps réel.
+4. Étendre aux comparaisons entre campagnes et aux coûts par résultat seulement si les coûts et dénominateurs nécessaires sont disponibles et comparables. Ne pas déduire automatiquement les ventes futures des wishlists.
+
+**Contrainte documentée :** Steam fournit des résultats UTM agrégés et un export CSV, avec visites actualisées à l'heure et conversions finalisées quatre jours après la visite. Certaines données sont exclues pour confidentialité ou seuils ; les conversions UTM sont attribuées dans une fenêtre de 72 heures. Vérifier ces conditions au moment du pilote dans la [documentation Steamworks](https://partner.steamgames.com/doc/marketing/utm_analytics?l=english).
+
+**Première valeur vérifiable :** le studio et le manager peuvent lire un bilan réconcilié avec un export autorisé et comprendre ce qui est attribué, manquant ou encore provisoire, sans intégration dans le jeu.
+
+### Parcours B — Éditeurs de jeux avec backend
+
+**Hypothèse à vérifier :** mesurer des joueurs qualifiés plutôt que de simples clics, et animer la campagne avec des objectifs alimentés par des actions dans le jeu.
+
+1. Choisir avec l'entreprise une action utile : compte créé, tutoriel terminé, première partie ou niveau atteint. Définir précisément si l'on compte des actions ou des joueurs uniques, et comment le lien est relié à l'action.
+2. Réaliser la première tranche commune avec événements entrants authentifiés et plusieurs objectifs OBS ; l'entreprise conserve son système comme source de référence.
+3. Comparer les résultats avec un extrait agrégé autorisé de son backend. Traiter événements répétés, annulations, pertes d'attribution et délais ; afficher séparément données reçues et confirmées selon les statuts effectivement fournis.
+4. Ajouter un parcours de conversion et des indicateurs de retour des joueurs seulement si cela répond à une décision client et si les données nécessaires sont disponibles. Ne pas créer un SDK multi-moteurs avant un besoin démontré.
+
+**Première valeur vérifiable :** une action confirmée alimente le bon objectif et un bilan cohérent avec la source de l'entreprise, avec effort d'intégration mesuré et absence de double comptage.
+
+### Parcours C — Éditeurs de jeux mobiles
+
+**Hypothèse à vérifier :** exploiter les outils d'attribution déjà installés pour comparer acquisition et qualité des joueurs, sans imposer un second SDK.
+
+1. Identifier l'outil existant (par exemple AppsFlyer ou Adjust), les accès/exportations réellement autorisés et les dimensions disponibles par campagne/créateur. Vérifier les contraintes contractuelles, de coût et de confidentialité avant de promettre un connecteur.
+2. Conserver si possible leurs liens et identifiants de campagne. Valider toute redirection supplémentaire pour ne pas casser l'ouverture de l'application, le passage par la boutique ou l'attribution.
+3. Importer d'abord les résultats autorisés les plus simples, par fichier ou API selon le pilote : installations attribuées et une action qualifiante. Préserver les règles et fenêtres de la source, les délais et les données indisponibles ; aucune tentative de contournement des protections des plateformes.
+4. Étendre à la rétention par cohorte et au retour sur dépenses publicitaires (ROAS) si demandés : définir période, coût inclus, revenus, devise et maturité des cohortes. Ne pas confondre revenus attribués, bénéfice et impact causal de la campagne.
+
+**Première valeur vérifiable :** le manager obtient un bilan compatible avec les rapports de l'outil existant, sans nouveau SDK, et les objectifs OBS ne publient que des agrégats approuvés avec leur fraîcheur.
+
+### Parcours D — Agences et managers de campagnes
+
+**Hypothèse à vérifier :** réduire la préparation et la consolidation des bilans de plusieurs streamers, puis fournir au client un résultat compréhensible et partageable.
+
+1. Décrire le travail actuel du manager : préparation du brief, création des liens, suivi des engagements et collecte des résultats. Mesurer le temps passé et les erreurs récurrentes avant de proposer une automatisation.
+2. Préparer une vue par campagne et streamer, réunissant liens, objectifs convenus, résultats sourcés et liens vers les preuves de réalisation autorisées (replay, extrait ou bilan de diffusion). Séparer réalisation contractuelle, exposition et conversion ; ne pas annoncer une vérification automatique du contenu.
+3. Prévoir un bilan exportable et un accès client limité. Définir les délégations agence → entreprise → campagne sans donner à une agence un accès global à toutes les entreprises ; protéger aussi budgets et conditions individuelles des streamers.
+4. Comparer les résultats seulement lorsque définitions, périodes et sources sont compatibles ; signaler les données manquantes plutôt que fabriquer un classement. Prioriser ensuite les modèles de campagne et l'automatisation des collectes réellement répétitives.
+
+**Première valeur vérifiable :** le manager prépare un bilan multi-streamer accepté par un client avec moins de travail manuel, mesuré par rapport à sa méthode actuelle, sans mélange entre clients ni divulgation des conditions privées.
+
+### Parcours E — Sites marchands et collaborations mensuelles
+
+**Besoin exprimé :** couvrir aussi les partenariats hors jeu vidéo, notamment les collaborations mensuelles avec des boutiques. Objectifs retenus : commandes payées, clients acheteurs uniques, montants cumulés et actions personnalisées. Le mécanisme réel d'attribution reste à confirmer pour chaque partenaire ; accepter code promotionnel, lien de suivi ou règle interne sans en imposer un.
+
+1. Identifier dans le système du partenaire le moment qui confirme l'action, puis brancher un appel serveur vers notre API. Un webhook existant ou un outil d'automatisation peut convenir s'il respecte le contrat et les règles d'authentification ; ne pas promettre un connecteur natif Shopify/WooCommerce sans besoin confirmé.
+2. Commencer par les commandes payées avec une référence opaque de commande : plusieurs notifications de la même commande ne doivent pas créer plusieurs ventes, même avec des identifiants d'événements différents. Pour les clients uniques, définir l'identifiant opaque ou la garantie de déduplication entreprise prévue par le MVP, sans envoyer de coordonnées client ni le détail du panier.
+3. Définir les périodes mensuelles avant automatisation : mois civil ou dates contractuelles, fuseau horaire et bornes non chevauchantes. Créer une nouvelle période avec ses objectifs sans effacer l'ancienne ; figer les définitions et cibles historiques. Rattacher les événements à leur date métier convenue plutôt qu'à leur seule date de réception, avec une règle explicite pour les retards et la clôture.
+4. Ajouter les montants cumulés : convenir HT/TTC, frais de port, remises, statut de paiement et devise. Utiliser une représentation monétaire exacte ; ne jamais additionner des devises différentes sans règle de conversion explicite. Ne pas confondre montant brut de commandes, ventes nettes et bénéfice.
+5. Définir annulations et remboursements partiels/complets avec référence à la commande d'origine, déduplication et historique des ajustements. Décider si un remboursement tardif corrige la période d'origine ou produit un ajustement dans la période courante, et de son effet sur commandes/clients uniques ; ne pas déduire aveuglément une commande entière pour chaque remboursement partiel.
+6. Valider une transition de mois, une commande attribuée par code et lien à la fois, une notification répétée, un client ayant plusieurs commandes, un événement tardif et un remboursement sur la période précédente. Distinguer montant public autorisé dans OBS et données commerciales réservées au partenaire/manager.
+
+**Première valeur vérifiable :** une commande confirmée alimente une seule fois le bon objectif du bon streamer et de la bonne période ; le changement de mois préserve l'historique. **Extension validée quand :** clients uniques et montants se réconcilient avec les résultats autorisés de la boutique, y compris les ajustements selon la règle convenue, sans divulguer de données client.
+
+### Package commercial — hypothèses à valider
+
+- Proposition de socle : cadrage des objectifs, liens de campagne et bilan sourcé. Options possibles : objectifs OBS, intégration des conversions, consolidation multi-streamer et suivi différé. Ce découpage n'est ni une offre ni une tarification validée.
+- Définir avec le manager ce qui est inclus, optionnel ou sur devis : configuration, création/adaptation CSS, intégration, accompagnement, fréquence des résultats et durée du suivi après campagne. Mesurer le coût opérationnel avant de fixer un prix.
+- Afficher les prérequis de chaque option et l'effort demandé à l'entreprise. Ne pas vendre une conversion mesurée en direct si la source n'en fournit qu'un relevé différé.
+- Valider l'intérêt de l'overlay séparément de celui du bilan : une entreprise peut vouloir l'un sans l'autre. Ne pas promettre un nombre de ventes, une attribution exhaustive ou un retour sur investissement garanti.
+- Déterminer si le pilote est une démonstration, une option incluse ou une prestation payante ; recueillir ensuite un retour sur l'utilité et une décision de renouvellement. Ne pas engager de conditions commerciales sans accord explicite.
+
+### Progression technique commune — guidée par les pilotes
+
+Les parcours A à E partagent campagnes, droits, métriques, résultats, périodes et objectifs ; ils ne nécessitent pas de plugins ou moteurs de suivi distincts. Ils peuvent se recouper, notamment lorsqu'une agence accompagne un studio ou une boutique. Les entretiens peuvent commencer avant les autres chantiers, mais l'isolation multi-streamer et les prérequis d'exploitation restent nécessaires avant un usage externe.
+
+1. Livrer le **MVP prioritaire** défini en tête de section sur données temporaires : configurer une campagne, ses références d'attribution et ses objectifs, recevoir les événements de l'entreprise, persister les compteurs et les afficher dans OBS. Garder les liens globaux/par streamer comme moyen d'attribution, sans obliger une boutique utilisant déjà ses codes promo à changer de mécanisme. Toute substitution du MVP par un import ou connecteur nécessite confirmation.
+2. Contrôler doublons/rejeux, données invalides ou tardives, redémarrage, révocation et isolation entre deux entreprises et deux streamers. Les erreurs d'intégration ne doivent pas bloquer les autres plugins. Valider le rendu CSS dans OBS séparément des contrôles d'API.
+3. Ajouter les imports de fichiers justifiés par les parcours métier : provenance, période, aperçu, validation bornée, version du format et réimport idempotent. Les imports et API d'une même source doivent partager les règles de rapprochement.
+4. Ajouter interrogation API et envois sortants selon les pilotes, avec curseurs, état de livraison, réessais bornés, protection des destinations et gestion de leur indisponibilité. Les trois modes restent une cible, pas un préalable à la première valeur commerciale.
+5. Faciliter configuration, consultation/export et diagnostic ; vérifier avec une seconde entreprise qu'une intégration compatible se configure sans modifier le code métier.
+6. Valider un pilote externe autorisé, puis confronter le bilan aux données de référence et recueillir le retour du manager et du client. Documenter les limites constatées avant toute promesse commerciale.
+
+**Première tranche terminée quand :** les critères du MVP en tête de section passent sur données fictives, puis le parcours entreprise → API → OBS est confirmé avec un pilote autorisé. **Validation produit :** chaque parcours garde son propre critère ; un succès technique ou un pilote dans une catégorie ne valide pas les autres. Tout nouveau fichier de tests ou script nécessite un accord spécifique.
 
 ## 8. Exploitation durable
 
