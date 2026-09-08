@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#0f0f12">
     <link rel="stylesheet" href="/static/admin.css">
     <script src="/static/admin.js" defer></script>
+    <script src="/static/giveaway-preview.js" defer></script>
     <title>NecsusDevOverlays — Administration</title>
   </head>
   <body>
@@ -182,6 +183,30 @@
                 Il n’est affiché qu’après sa génération. Le régénérer invalidera immédiatement l’ancienne source OBS.
               </p>
             </div>
+          </section>
+
+          <section class="panel" aria-labelledby="giveaway-preview-title">
+            <h3 id="giveaway-preview-title">Prévisualisation Giveaway</h3>
+            <label for="giveaway-preview-scenario">Scénario</label>
+            <select id="giveaway-preview-scenario">
+              <option value="hidden">Masqué</option>
+              <option value="openTimed">Ouvert avec temps</option>
+              <option value="waiting">En attente</option>
+              <option value="open">Ouvert</option>
+              <option value="winner">Gagnant</option>
+              <option value="multipleWinners">Gagnants Multiple</option>
+            </select>
+
+            <p id="giveaway-preview-note" role="status">
+              Données fictives - aucun effet sur le giveaway réel.
+            </p>
+
+            <iframe
+              id="giveaway-preview-frame"
+              title="Aperçu du giveaway avec des données fictives"
+              sandbox="allow-scripts"
+              referrerpolicy="no-referrer"
+            ></iframe>
           </section>
 
           <section class="session-footer" aria-labelledby="logout-title">

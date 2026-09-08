@@ -1,36 +1,3 @@
-const giveawayElement = document.querySelector("#giveaway");
-const lotElement = document.querySelector("#lot");
-const statusElement = document.querySelector("#status");
-const participantsElement = document.querySelector("#participants");
-const winnerElement = document.querySelector("#winner");
-
-const countdownElement = document.querySelector("#countdown");
-let closesAt = null;
-
-function renderCountdown() {
-  countdownElement.hidden = closesAt === null;
-  countdownElement.textContent = closesAt === null
-    ? ""
-    : `${Math.max(0, Math.ceil((closesAt - Date.now()) / 1000))} s`;
-}
-
-window.setInterval(renderCountdown, 250);
-
-function renderGiveaway(state) {
-  const deadline = Date.parse(state.closes_at);
-  closesAt = state.state === "OPEN" && Number.isFinite(deadline) ? deadline : null;
-  renderCountdown();
-  giveawayElement.hidden = state.state === "HIDDEN";
-  lotElement.textContent = state.lot ?? "";
-  statusElement.textContent = state.state;
-  participantsElement.textContent = String(state.participant_count);
-
-  const winners = state.winners ?? [];
-  winnerElement.textContent = winners
-    .map((winner, index) => `${index + 1}. ${winner.display_name}`)
-    .join(" • ");
-}
-
 function connectWebSocket() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const token = window.location.hash.slice(1);
@@ -71,14 +38,5 @@ function connectWebSocket() {
   });
 }
 
-function clearGiveaway() {
-  closesAt = null;
-  renderCountdown();
-  giveawayElement.hidden = true;
-  lotElement.textContent = "";
-  statusElement.textContent = "";
-  participantsElement.textContent = "0";
-  winnerElement.textContent = "";
-}
-
+window.setInterval(renderCountdown, 250);
 connectWebSocket();
