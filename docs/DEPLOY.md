@@ -165,19 +165,25 @@ indépendante.
 
 ## 4. Mettre à jour une release déjà installée
 
-```bash
-# Identifier le commit dans le dépôt de développement, après revue.
-git -C /home/necsus/dev/necsusdev-overlays rev-parse HEAD
+Le script `scripts/update-release.sh` enchaîne fetch local, checkout détaché,
+dépendances, migration et redémarrage. Il ne lit pas, n'affiche pas et ne
+copie pas `.env` ni `.tio.tokens.json`. Nginx, SSH et Tailscale restent
+intacts.
 
-sudo -u overlays git -C /srv/overlays fetch origin
-sudo -u overlays git -C /srv/overlays checkout --detach COMMIT
-sudo -u overlays /srv/overlays/.venv/bin/pip install -r /srv/overlays/requirements.txt
-sudo -u overlays env LD_LIBRARY_PATH=... /srv/overlays/.venv/bin/python -m app.infrastructure.database
-sudo systemctl restart overlays.service
+```bash
+cd /home/necsus/dev/necsusdev-overlays
+# Le commit doit déjà exister dans ce dépôt ; les fichiers non commités ne
+# partent pas.
+git rev-parse HEAD
+./scripts/update-release.sh HEAD
 ```
 
-`sudo -u overlays git fetch` exige un accès Git pour cet utilisateur. Sinon,
-mettre à jour en tant que `necsus` puis `chown -R overlays:overlays`.
+Ajouter `-y` pour ignorer la confirmation. Le script transmet le commit via un
+bundle Git lisible par l'utilisateur `overlays` (son compte n'a pas accès à
+`/home/necsus`). `libpq` est repris depuis `LD_LIBRARY_PATH` du service.
+
+Contrôles attendus : `overlays.service` actif, `http://127.0.0.1:8000/health`
+et `https://overlay.necsus.dev/health` en HTTP 200.
 
 Toute migration SQL doit rester compatible avec un retour arrière, ou être
 refusée. Un redémarrage de la release n'arrête pas Nginx ni la dev.
