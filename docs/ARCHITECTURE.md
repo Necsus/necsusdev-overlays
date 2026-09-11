@@ -183,7 +183,7 @@ Deux hôtes Nginx sont déclarés dans `/etc/nixos/overlay-proxy.nix`, importé 
 | Domaine | Destination HTTPS/WebSocket | État |
 | --- | --- | --- |
 | `overlay-dev.necsus.dev` | `127.0.0.1:8001` | Accès dev opérationnel |
-| `overlay.necsus.dev` | `127.0.0.1:8000` | Proxy existant, réservé à la future release |
+| `overlay.necsus.dev` | `127.0.0.1:8000` | Release : `overlays.service`, `/health` HTTP 200 |
 
 Les deux domaines pointent vers l'adresse LAN privée `192.168.1.112`, sans proxy
 Cloudflare. Nginx écoute sur cette adresse en HTTPS, port 443. Chaque domaine
@@ -200,9 +200,12 @@ Tailscale Serve reste séparé sur son adresse privée ; aucun port Internet n'e
 redirigé et Funnel ne doit pas être activé. La résolution vers une IP LAN ne
 garantit pas son accessibilité depuis un client distant via Tailscale.
 
-Le service applicatif systemd et les sauvegardes automatisées restent à
-préparer. Conserver **un seul worker Uvicorn** tant que les moteurs, le bot et
-les connexions résident en mémoire.
+`overlays.service` écoute sur `127.0.0.1:8000` (un worker, sans `--reload`).
+Le `PATH` du service inclut `binutils` (`ld`) pour que Psycopg trouve `libpq`.
+Release et développement partagent la base `overlays` jusqu'à séparation
+ultérieure ; Twitch ne doit être actif que sur une instance. La publication et
+les mises à jour sont dans [DEPLOY.md](DEPLOY.md). Les sauvegardes
+automatisées restent à préparer.
 
 ## Limites connues
 

@@ -85,15 +85,17 @@ via **[overlay-dev.necsus.dev](https://overlay-dev.necsus.dev)** tant que le
 processus tourne. L'accès HTTPS a été contrôlé depuis le serveur et confirmé par
 l'utilisateur.
 
-**[overlay.necsus.dev](https://overlay.necsus.dev)** est réservé à la release,
-avec un proxy vers `127.0.0.1:8000`. La release figée et son service systemd ne
-sont pas encore déployés ; la configuration du domaine ne constitue pas une
-publication du code.
+**[overlay.necsus.dev](https://overlay.necsus.dev)** sert la release
+(`overlays.service` → `127.0.0.1:8000`). La procédure de publication et de mise
+à jour est dans [docs/DEPLOY.md](docs/DEPLOY.md). `/health` a répondu HTTP 200
+depuis le serveur ; le parcours Twitch/OBS reste à valider.
+
+Release et développement partagent pour l'instant la base PostgreSQL
+`overlays`. Twitch ne doit être activé que sur une instance à la fois.
 
 Les deux accès passent par Nginx sur le LAN, sans exposition publique sur
 Internet. L'accès Tailscale reste séparé. Voir le
-[réseau actuel](docs/ARCHITECTURE.md#réseau-et-exploitation) et le
-[plan de publication](docs/adr/0011-exploitation-durable.md#préparer-la-première-release).
+[réseau actuel](docs/ARCHITECTURE.md#réseau-et-exploitation).
 
 Les instructions Twitch/OBS ci-dessous utilisent le domaine cible de la release.
 Pour tester la dev, utiliser `https://overlay-dev.necsus.dev` et déclarer son
@@ -189,6 +191,7 @@ séparément.
 
 - [Architecture](docs/ARCHITECTURE.md) : fonctionnement actuel, stockage,
   sécurité et limites.
+- [Déploiement](docs/DEPLOY.md) : publication de la release sur NixOS.
 - [Roadmap](docs/ROADMAP.md) : priorités et index des décisions/plans (ADR).
 - [Migration PostgreSQL](docs/MIGRATE_TO_PG.md) : contrôles effectués et
   validations restantes.

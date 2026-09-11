@@ -6,10 +6,10 @@ Ce fichier est l’index du travail restant. L’existant est décrit dans
 
 ## Étape en cours : première release
 
-Préparer une version figée, distincte du développement, via un service NixOS. Le
-[plan de publication](adr/0011-exploitation-durable.md#préparer-la-première-release)
-reste ouvert ; les validations PostgreSQL et Twitch/OBS sont nécessaires avant
-de valider la release.
+La release tourne via `overlays.service` ; procédure dans
+[DEPLOY.md](DEPLOY.md). Release et dev partagent la base `overlays` jusqu'à
+séparation ultérieure. `/health` HTTPS a été contrôlé ; le parcours Twitch/OBS
+et les sauvegardes restent à valider.
 
 ## Priorités et dossiers ADR
 
