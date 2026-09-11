@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import sqlite3
 from typing import cast
 
 import aiohttp
@@ -14,6 +13,7 @@ from app.application.oauth_state import OAuthStateStore
 from app.application.session import SESSION_COOKIE_NAME, SessionSigner
 from app.core.configuration import ApplicationConfiguration
 from app.core.environment import Settings
+from app.infrastructure.database import Database, DatabaseError
 from app.infrastructure.streamers import load_active_streamer, save_active_streamer
 from app.infrastructure.twitch import GiveawayTwitchBot
 from app.infrastructure.twitch_oauth import (
@@ -160,9 +160,7 @@ async def twitch_callback(
         request.app.state.twitch_oauth_client,
     )
 
-    required_scopes = (
-        BOT_SCOPE_NAMES if oauth_flow == "bot" else STREAMER_SCOPE_NAMES
-    )
+    required_scopes = BOT_SCOPE_NAMES if oauth_flow == "bot" else STREAMER_SCOPE_NAMES
 
     try:
         authorization = await twitch_oauth_client.exchange_code(
@@ -182,20 +180,25 @@ async def twitch_callback(
     if oauth_flow == "bot":
         return await complete_bot_authorization(request, authorization)
 
-    connection = cast(
-        sqlite3.Connection,
-        request.app.state.database_connection,
-    )
+    database = cast(Database, request.app.state.database)
+    async with database.access_lock:
+        return await complete_streamer_authorization(request, authorization)
+
+
+async def complete_streamer_authorization(
+    request: Request, authorization: TwitchAuthorization
+) -> RedirectResponse:
+    database = cast(Database, request.app.state.database)
     try:
-        previous_active_streamer = load_active_streamer(connection)
-        save_active_streamer(
-            connection,
+        previous_active_streamer = await load_active_streamer(database)
+        await save_active_streamer(
+            database,
             twitch_user_id=authorization.twitch_user_id,
             login=authorization.login,
             display_name=authorization.display_name,
             profile_image_url=authorization.profile_image_url,
         )
-    except sqlite3.Error:
+    except DatabaseError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to persist the Twitch identity",
@@ -203,8 +206,7 @@ async def twitch_callback(
 
     if (
         previous_active_streamer is not None
-        and previous_active_streamer.twitch_user_id
-        != authorization.twitch_user_id
+        and previous_active_streamer.twitch_user_id != authorization.twitch_user_id
     ):
         overlay_connections = cast(
             OverlayConnectionManager,

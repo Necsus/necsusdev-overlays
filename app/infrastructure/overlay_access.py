@@ -1,89 +1,45 @@
-import sqlite3
 from datetime import UTC, datetime
-from typing import cast
+
+from app.infrastructure.database import Database
 
 
-def rotate_overlay_access_key(
-    connection: sqlite3.Connection,
-    streamer_id: str,
-    plugin_slug: str,
-    token_hash: str,
+async def rotate_overlay_access_key(
+    database: Database, streamer_id: str, plugin_slug: str, token_hash: str
 ) -> None:
-    now = datetime.now(UTC).isoformat()
-
-    with connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO overlay_access_keys (
-                streamer_id,
-                plugin_slug,
-                token_hash,
-                created_at,
-                rotated_at
-            )
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (streamer_id, plugin_slug) DO UPDATE SET
-                token_hash = excluded.token_hash,
-                rotated_at = excluded.rotated_at
-            """,
-            (
-                streamer_id,
-                plugin_slug,
-                token_hash,
-                now,
-                now,
-            ),
+    now = datetime.now(UTC)
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """INSERT INTO overlay_access_keys (
+                       streamer_id, plugin_slug, token_hash, created_at, rotated_at
+                   ) VALUES (%s, %s, %s, %s, %s)
+                   ON CONFLICT (streamer_id, plugin_slug) DO UPDATE SET
+                       token_hash = excluded.token_hash,
+                       rotated_at = excluded.rotated_at""",
+            (streamer_id, plugin_slug, token_hash, now, now),
         )
-        cursor.close()
 
 
-def resolve_overlay_access_key(
-    connection: sqlite3.Connection,
-    plugin_slug: str,
-    token_hash: str,
+async def resolve_overlay_access_key(
+    database: Database, plugin_slug: str, token_hash: str
 ) -> str | None:
-    cursor = connection.execute(
-        """
-        SELECT streamer_id
-        FROM overlay_access_keys
-        WHERE plugin_slug = ? AND token_hash = ?
-        LIMIT 1
-        """,
-        (
-            plugin_slug,
-            token_hash,
-        ),
-    )
-    row = cast(sqlite3.Row | None, cursor.fetchone())
-    cursor.close()
-
-    if row is None:
-        return None
-
-    return cast(str, row["streamer_id"])
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """SELECT streamer_id FROM overlay_access_keys
+                   WHERE plugin_slug = %s AND token_hash = %s LIMIT 1""",
+            (plugin_slug, token_hash),
+        )
+        row = await cursor.fetchone()
+    return row["streamer_id"] if row is not None else None
 
 
-def load_overlay_access_key_rotated_at(
-    connection: sqlite3.Connection,
-    streamer_id: str,
-    plugin_slug: str,
+async def load_overlay_access_key_rotated_at(
+    database: Database, streamer_id: str, plugin_slug: str
 ) -> str | None:
-    cursor = connection.execute(
-        """
-        SELECT rotated_at
-        FROM overlay_access_keys
-        WHERE streamer_id = ? AND plugin_slug = ?
-        LIMIT 1
-        """,
-        (
-            streamer_id,
-            plugin_slug,
-        ),
-    )
-    row = cast(sqlite3.Row | None, cursor.fetchone())
-    cursor.close()
-
-    if row is None:
-        return None
-
-    return cast(str, row["rotated_at"])
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """SELECT rotated_at FROM overlay_access_keys
+                   WHERE streamer_id = %s AND plugin_slug = %s LIMIT 1""",
+            (streamer_id, plugin_slug),
+        )
+        row = await cursor.fetchone()
+    return row["rotated_at"].isoformat() if row is not None else None

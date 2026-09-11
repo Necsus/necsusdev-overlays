@@ -1,127 +1,70 @@
-import sqlite3
 from datetime import UTC, datetime
-from typing import cast
 
 from app.domain.giveaway import GiveawayEngine, GiveawayState, Participant
+from app.infrastructure.database import Database
 
 
-def create_giveaway(connection: sqlite3.Connection, giveaway_id: str, lot: str) -> None:
-    created_at = datetime.now(UTC).isoformat()
-
-    cursor = connection.execute(
-        """
-        INSERT INTO giveaways (id, lot, status, created_at)
-        VALUES (?, ?, 'WAITING', ?)
-        """,
-        (giveaway_id, lot, created_at),
-    )
-    cursor.close()
-    connection.commit()
-
-
-def open_giveaway(
-    connection: sqlite3.Connection,
-    giveaway_id: str,
-    closes_at: datetime | None = None,
-) -> None:
-    opened_at = datetime.now(UTC).isoformat()
-
-    cursor = connection.execute(
-        """
-        UPDATE giveaways
-        SET status = 'OPEN', opened_at = ?, closes_at = ?
-        WHERE id = ? AND status = 'WAITING'
-        """,
-        (opened_at, closes_at.isoformat() if closes_at else None, giveaway_id),
-    )
-
-    updated_rows = cursor.rowcount
-    cursor.close()
-
-    if updated_rows != 1:
-        connection.rollback()
-        raise RuntimeError("The giveaway is not waiting")
-
-    connection.commit()
-
-
-def add_participant(
-    connection: sqlite3.Connection,
-    giveaway_id: str,
-    participant: Participant,
-) -> bool:
-    joined_at = datetime.now(UTC).isoformat()
-
-    cursor = connection.execute(
-        """
-        INSERT INTO participants (
-            giveaway_id,
-            twitch_user_id,
-            login,
-            display_name,
-            joined_at
+async def create_giveaway(database: Database, giveaway_id: str, lot: str) -> None:
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """INSERT INTO giveaways (id, lot, status, created_at)
+                   VALUES (%s, %s, 'WAITING', %s)""",
+            (giveaway_id, lot, datetime.now(UTC)),
         )
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT (giveaway_id, twitch_user_id) DO NOTHING
-        """,
-        (
-            giveaway_id,
-            participant.twitch_user_id,
-            participant.login,
-            participant.display_name,
-            joined_at,
-        ),
-    )
-    was_added = cursor.rowcount == 1
-    cursor.close()
-    connection.commit()
-
-    return was_added
 
 
-def draw_giveaway(
-    connection: sqlite3.Connection,
-    giveaway_id: str,
-    winner: Participant,
+async def open_giveaway(
+    database: Database, giveaway_id: str, closes_at: datetime | None = None
 ) -> None:
-    drawn_at = datetime.now(UTC).isoformat()
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """UPDATE giveaways SET status = 'OPEN', opened_at = %s, closes_at = %s
+                   WHERE id = %s AND status = 'WAITING'""",
+            (datetime.now(UTC), closes_at, giveaway_id),
+        )
+        if cursor.rowcount != 1:
+            raise RuntimeError("The giveaway is not waiting")
 
-    with connection:
-        cursor = connection.execute(
-            """
-            UPDATE giveaways
-            SET
-                status = 'WINNER',
-                closes_at = NULL,
-                drawn_at = COALESCE(drawn_at, ?)
-            WHERE id = ? AND status IN ('OPEN', 'WINNER')
-            """,
+
+async def add_participant(
+    database: Database, giveaway_id: str, participant: Participant
+) -> bool:
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """INSERT INTO participants (
+                       giveaway_id, twitch_user_id, login, display_name, joined_at
+                   ) VALUES (%s, %s, %s, %s, %s)
+                   ON CONFLICT (giveaway_id, twitch_user_id) DO NOTHING""",
+            (
+                giveaway_id,
+                participant.twitch_user_id,
+                participant.login,
+                participant.display_name,
+                datetime.now(UTC),
+            ),
+        )
+        return cursor.rowcount == 1
+
+
+async def draw_giveaway(
+    database: Database, giveaway_id: str, winner: Participant
+) -> None:
+    drawn_at = datetime.now(UTC)
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """UPDATE giveaways
+                   SET status = 'WINNER', closes_at = NULL,
+                       drawn_at = COALESCE(drawn_at, %s)
+                   WHERE id = %s AND status IN ('OPEN', 'WINNER')""",
             (drawn_at, giveaway_id),
         )
-        updated_rows = cursor.rowcount
-        cursor.close()
-
-        if updated_rows != 1:
+        if cursor.rowcount != 1:
             raise RuntimeError("The giveaway cannot be drawn")
-
-        cursor = connection.execute(
-            """
-            INSERT INTO winners (
-                giveaway_id,
-                twitch_user_id,
-                display_name,
-                drawn_at,
-                draw_order
-            )
-            SELECT
-                ?,
-                ?,
-                ?,
-                ?,
-                COALESCE(MAX(draw_order), 0) + 1
-            FROM winners
-            WHERE giveaway_id = ?
-            """,
+        await cursor.execute(
+            """INSERT INTO winners (
+                       giveaway_id, twitch_user_id, display_name, drawn_at, draw_order
+                   ) SELECT %s, %s, %s, %s, COALESCE(MAX(draw_order), 0) + 1
+                     FROM winners WHERE giveaway_id = %s""",
             (
                 giveaway_id,
                 winner.twitch_user_id,
@@ -130,109 +73,59 @@ def draw_giveaway(
                 giveaway_id,
             ),
         )
-        inserted_rows = cursor.rowcount
-        cursor.close()
-
-        if inserted_rows != 1:
+        if cursor.rowcount != 1:
             raise RuntimeError("The winner was not persisted")
 
 
-def stop_giveaway(
-    connection: sqlite3.Connection,
-    giveaway_id: str,
-) -> None:
-    stopped_at = datetime.now(UTC).isoformat()
-
-    cursor = connection.execute(
-        """
-        UPDATE giveaways
-        SET
-            status = CASE
-                WHEN status = 'WINNER' THEN 'COMPLETED'
-                ELSE 'CANCELLED'
-            END,
-            closes_at = NULL,
-            stopped_at = ?
-        WHERE id = ?
-            AND status IN ('WAITING', 'OPEN', 'WINNER')
-        """,
-        (stopped_at, giveaway_id),
-    )
-    updated_rows = cursor.rowcount
-    cursor.close()
-
-    if updated_rows != 1:
-        connection.rollback()
-        raise RuntimeError("There is no active giveaway")
-
-    connection.commit()
-
-
-def restore_active_giveaway(
-    connection: sqlite3.Connection,
-    engine: GiveawayEngine,
-) -> bool:
-    cursor = connection.execute(
-        """
-        SELECT id, lot, status, closes_at
-        FROM giveaways
-        WHERE status IN ('WAITING', 'OPEN', 'WINNER')
-        ORDER BY created_at DESC
-        LIMIT 1
-        """
-    )
-    giveaway_row = cast(sqlite3.Row | None, cursor.fetchone())
-    cursor.close()
-
-    if giveaway_row is None:
-        return False
-
-    giveaway_id = cast(str, giveaway_row["id"])
-
-    cursor = connection.execute(
-        """
-        SELECT twitch_user_id, login, display_name
-        FROM participants
-        WHERE giveaway_id = ?
-        ORDER BY joined_at, id
-        """,
-        (giveaway_id,),
-    )
-    participant_rows = cast(list[sqlite3.Row], cursor.fetchall())
-    cursor.close()
-
-    participants = [
-        Participant(
-            twitch_user_id=cast(str, row["twitch_user_id"]),
-            login=cast(str, row["login"]),
-            display_name=cast(str, row["display_name"]),
+async def stop_giveaway(database: Database, giveaway_id: str) -> None:
+    async with database.transaction() as connection, connection.cursor() as cursor:
+        await cursor.execute(
+            """UPDATE giveaways
+                   SET status = CASE WHEN status = 'WINNER' THEN 'COMPLETED'
+                                     ELSE 'CANCELLED' END,
+                       closes_at = NULL, stopped_at = %s
+                   WHERE id = %s AND status IN ('WAITING', 'OPEN', 'WINNER')""",
+            (datetime.now(UTC), giveaway_id),
         )
-        for row in participant_rows
-    ]
+        if cursor.rowcount != 1:
+            raise RuntimeError("There is no active giveaway")
 
-    cursor = connection.execute(
-        """
-        SELECT twitch_user_id
-        FROM winners
-        WHERE giveaway_id = ?
-        ORDER BY draw_order
-        """,
-        (giveaway_id,),
-    )
-    winner_rows = cast(list[sqlite3.Row], cursor.fetchall())
-    cursor.close()
 
-    winner_user_ids = [cast(str, row["twitch_user_id"]) for row in winner_rows]
-
+async def restore_active_giveaway(database: Database, engine: GiveawayEngine) -> bool:
+    async with (
+        database.transaction() as connection,
+        connection.cursor() as cursor,
+    ):
+        await cursor.execute(
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+        )
+        await cursor.execute(
+            """SELECT id, lot, status, closes_at FROM giveaways
+               WHERE status IN ('WAITING', 'OPEN', 'WINNER')
+               ORDER BY created_at DESC LIMIT 1"""
+        )
+        giveaway = await cursor.fetchone()
+        if giveaway is None:
+            return False
+        await cursor.execute(
+            """SELECT twitch_user_id, login, display_name FROM participants
+               WHERE giveaway_id = %s ORDER BY joined_at, id""",
+            (giveaway["id"],),
+        )
+        participants = [Participant(**row) for row in await cursor.fetchall()]
+        await cursor.execute(
+            """SELECT twitch_user_id FROM winners
+               WHERE giveaway_id = %s ORDER BY draw_order""",
+            (giveaway["id"],),
+        )
+        winner_ids = [row["twitch_user_id"] for row in await cursor.fetchall()]
     engine.restore(
-        giveaway_id=giveaway_id,
-        lot=cast(str, giveaway_row["lot"]),
-        state=GiveawayState(cast(str, giveaway_row["status"])),
+        giveaway_id=giveaway["id"],
+        lot=giveaway["lot"],
+        state=GiveawayState(giveaway["status"]),
         participants=participants,
-        winner_user_ids=winner_user_ids,
+        winner_user_ids=winner_ids,
     )
-
-    if engine.state is GiveawayState.OPEN and giveaway_row["closes_at"] is not None:
-        engine.closes_at = datetime.fromisoformat(str(giveaway_row["closes_at"]))
-
+    if engine.state is GiveawayState.OPEN:
+        engine.closes_at = giveaway["closes_at"]
     return True

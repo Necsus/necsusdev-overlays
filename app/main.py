@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -12,9 +12,9 @@ from app.application.service import GiveawayService
 from app.application.session import SessionSigner
 from app.core.configuration import configuration_from_settings
 from app.core.environment import Settings
-from app.domain.giveaway import GiveawayEngine
+from app.domain.giveaway import GiveawayEngine, GiveawayState
 from app.infrastructure.configuration_store import ConfigurationStore
-from app.infrastructure.database import connect_database, initialize_database
+from app.infrastructure.database import Database
 from app.infrastructure.history import restore_active_giveaway
 from app.infrastructure.streamers import load_active_streamer
 from app.infrastructure.twitch import GiveawayTwitchBot
@@ -39,16 +39,18 @@ overlay_connections = OverlayConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = Settings()  # pyright: ignore[reportCallIssue]
+    database = Database(settings)
+    await database.check_schema()
+
+    # Reinitialize the shared engine if the lifespan is entered again.
+    if giveaway_engine.state is not GiveawayState.HIDDEN:
+        giveaway_engine.stop()
+    active_streamer = await load_active_streamer(database)
+    _ = await restore_active_giveaway(database, giveaway_engine)
 
     session_signer = SessionSigner(
         secret_key=settings.session_secret.get_secret_value(),
         max_age_seconds=settings.session_max_age_seconds,
-    )
-
-    twitch_oauth_client = TwitchOAuthClient(
-        client_id=settings.twitch_client_id,
-        client_secret=settings.twitch_client_secret.get_secret_value(),
-        redirect_uri=settings.twitch_admin_redirect_uri,
     )
 
     configuration_store = ConfigurationStore(settings.giveaway_config_file)
@@ -57,26 +59,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         configuration = configuration_from_settings(settings)
         configuration_store.save(configuration)
 
-    connection = connect_database()
-    initialize_database(connection)
-
-    active_streamer = load_active_streamer(connection)
-    _ = restore_active_giveaway(connection, giveaway_engine)
-
     giveaway_service = GiveawayService(
         giveaway_engine,
-        connection,
+        database,
         overlay_connections,
     )
 
-    giveaway_service.resume_timer()
-
     app.state.settings = settings
-    app.state.database_connection = connection
+    app.state.database = database
     app.state.configuration = configuration
     app.state.session_signer = session_signer
     app.state.oauth_state_store = OAuthStateStore()
-    app.state.twitch_oauth_client = twitch_oauth_client
     app.state.overlay_connections = overlay_connections
 
     giveaway_command_handler = GiveawayCommandHandler(
@@ -94,37 +87,41 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     twitch_bot: GiveawayTwitchBot | None = None
     twitch_task: asyncio.Task[None] | None = None
 
-    if configuration.twitch.enabled:
-        twitch_bot = GiveawayTwitchBot(
-            settings=settings,
-            configuration=configuration,
-            command_handler=giveaway_command_handler,
-            active_broadcaster_id=(
-                active_streamer.twitch_user_id if active_streamer is not None else None
-            ),
+    async with AsyncExitStack() as resources:
+        twitch_oauth_client = TwitchOAuthClient(
+            client_id=settings.twitch_client_id,
+            client_secret=settings.twitch_client_secret.get_secret_value(),
+            redirect_uri=settings.twitch_admin_redirect_uri,
         )
-        twitch_task = asyncio.create_task(
-            twitch_bot.start(with_adapter=False),
-            name="twitch-bot",
-        )
+        resources.push_async_callback(twitch_oauth_client.close)
+        resources.push_async_callback(giveaway_service.close)
+        app.state.twitch_oauth_client = twitch_oauth_client
+        giveaway_service.resume_timer()
 
-    app.state.twitch_bot = twitch_bot
+        if configuration.twitch.enabled:
+            twitch_bot = GiveawayTwitchBot(
+                settings=settings,
+                configuration=configuration,
+                command_handler=giveaway_command_handler,
+                active_broadcaster_id=(
+                    active_streamer.twitch_user_id
+                    if active_streamer is not None
+                    else None
+                ),
+            )
+            resources.push_async_callback(twitch_bot.close)
+            twitch_task = asyncio.create_task(
+                twitch_bot.start(with_adapter=False), name="twitch-bot"
+            )
 
-    try:
-        yield
-    finally:
+        app.state.twitch_bot = twitch_bot
         try:
-            if twitch_bot is not None:
-                await twitch_bot.close()
-
-            if twitch_task is not None:
-                await twitch_task
+            yield
         finally:
-            try:
-                await twitch_oauth_client.close()
-            finally:
-                await giveaway_service.close()
-                connection.close()
+            if twitch_task is not None:
+                twitch_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await twitch_task
 
 
 app = FastAPI(title="NecsusDevOverlays", lifespan=lifespan)

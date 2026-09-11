@@ -1,5 +1,4 @@
 import asyncio
-import sqlite3
 from pathlib import Path
 from typing import cast
 
@@ -12,6 +11,7 @@ from app.application.overlay_access import (
     parse_overlay_authentication,
 )
 from app.domain.giveaway import GiveawayEngine
+from app.infrastructure.database import Database, DatabaseError
 from app.infrastructure.overlay_access import resolve_overlay_access_key
 from app.infrastructure.streamers import load_active_streamer
 from app.web.websocket import OverlayConnectionManager
@@ -60,34 +60,28 @@ def create_overlay_router(
             return False
 
         token_hash = hash_overlay_token(token)
-        connection = cast(
-            sqlite3.Connection,
-            websocket.app.state.database_connection,
-        )
+        database = cast(Database, websocket.app.state.database)
+        async with database.access_lock:
+            try:
+                streamer_id = await resolve_overlay_access_key(
+                    database,
+                    plugin_slug=GIVEAWAY_PLUGIN_SLUG,
+                    token_hash=token_hash,
+                )
+                active_streamer = await load_active_streamer(database)
+            except DatabaseError:
+                await websocket.close(code=1011)
+                return False
 
-        try:
-            streamer_id = resolve_overlay_access_key(
-                connection,
-                plugin_slug=GIVEAWAY_PLUGIN_SLUG,
-                token_hash=token_hash,
-            )
-            active_streamer = load_active_streamer(connection)
-        except sqlite3.Error:
-            await websocket.close(code=1011)
-            return False
+            if (
+                streamer_id is None
+                or active_streamer is None
+                or streamer_id != active_streamer.twitch_user_id
+            ):
+                await websocket.close(code=1008)
+                return False
 
-        if (
-            streamer_id is None
-            or active_streamer is None
-            or streamer_id != active_streamer.twitch_user_id
-        ):
-            await websocket.close(code=1008)
-            return False
-
-        connections.register(
-            websocket,
-            streamer_id=streamer_id,
-        )
+            connections.register(websocket, streamer_id=streamer_id)
         return True
 
     @router.websocket("/plugins/giveaway/ws")

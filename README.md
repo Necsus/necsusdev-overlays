@@ -1,15 +1,20 @@
 # NecsusDevOverlays
 
-Plateforme d'overlays Twitch pour OBS, pilotés depuis le chat et regroupés dans une administration commune.
+Plateforme d'overlays Twitch pour OBS, pilotés depuis le chat et regroupés dans
+une administration commune.
 
-- **Giveaway** : tirages manuels ou chronométrés, inscriptions uniques et gagnants multiples.
+- **Giveaway** : tirages manuels ou chronométrés, inscriptions uniques et
+  gagnants multiples.
 - **Chat** : plugin en préparation, pas encore disponible.
 
-L'application fonctionne actuellement avec **un seul streamer actif**, un bot global fixe et plusieurs sources OBS possibles. Se connecter avec un autre compte Twitch remplace le canal actif ; ce n'est pas encore un service multi-streamer simultané.
+L'application utilise **un seul streamer actif**, un bot global et plusieurs
+sources OBS possibles. Se connecter avec un autre compte Twitch remplace le
+canal actif ; le multi-streamer simultané n'est pas encore disponible.
 
 ## Installation et lancement
 
-Sur la DevBox NixOS, depuis `/home/necsus/dev/necsusdev-overlays`, avec Python 3.11 ou plus récent :
+Sur la DevBox NixOS, depuis `/home/necsus/dev/necsusdev-overlays`, avec Python
+3.11 ou plus récent et une base PostgreSQL dédiée déjà créée :
 
 ```bash
 python -m venv .venv
@@ -18,39 +23,119 @@ python -m pip install -r requirements.txt
 # Première installation seulement, si .env n'existe pas :
 cp -n .env.example .env
 # Compléter soi-même .env avec les valeurs nécessaires.
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Psycopg utilise libpq. Sur NixOS, si elle n'est pas déjà accessible :
+pg_lib=$(nix --extra-experimental-features 'nix-command flakes' build --no-link --print-out-paths 'nixpkgs#postgresql^lib') && export LD_LIBRARY_PATH="$pg_lib/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+python -c "import psycopg; print('Psycopg OK')"
+# Créer/mettre à jour le schéma avant de lancer l'application :
+python -m app.infrastructure.database
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-Garder **un seul worker Uvicorn**. `--reload` est destiné au développement. Après un déplacement du dossier, recréer le virtualenv plutôt que réutiliser ses anciens chemins absolus.
+Le modèle `.env.example` décrit les paramètres `PSQL_*` : **hôte sans port**,
+port séparé, base, utilisateur, mot de passe et mode TLS. Ne pas placer le mot
+de passe dans une commande ou une URL partagée. Pour un serveur distant,
+utiliser `verify-full` avec un certificat de confiance plutôt que le mode
+opportuniste `prefer`.
 
-L'installation locale utilise Nginx pour publier `https://overlay.necsus.dev` sur le LAN. L'accès Tailscale est séparé ; le service n'est pas exposé publiquement sur Internet. Le réseau est décrit dans [l'architecture](docs/ARCHITECTURE.md#réseau-et-exploitation).
+La migration crée les tables et enregistre la version du schéma, sans créer la
+base ou le rôle ni supprimer de table existante.
+
+- **Rôle de migration** : droit de créer des objets dans le schéma `public`.
+- **Rôle applicatif** : lecture/écriture des tables et usage de la séquence des
+  participants, sans superutilisateur.
+- En développement, le propriétaire de la base dédiée peut remplir les deux
+  usages.
+
+En cas d'échec, la migration affiche les noms des paramètres invalides ou une
+catégorie d'erreur SQL, jamais les valeurs ni le message brut du pilote. Sans
+code d'erreur exploitable, le diagnostic reste général.
+
+Le démarrage refuse un PostgreSQL indisponible ou un schéma non
+initialisé/incompatible, sans repli vers SQLite. Garder **un seul worker
+Uvicorn** ; `--reload` est réservé au développement. Après un déplacement du
+projet, recréer le virtualenv.
+
+### Dépannage PostgreSQL sur NixOS
+
+- **`libpq library not found`** : Psycopg a besoin de la bibliothèque système.
+  La commande Nix ci-dessus sélectionne la sortie `lib` et active
+  `nix-command`/`flakes` pour cet appel uniquement. La copier sur une seule
+  ligne et s'arrêter si elle échoue. Une bibliothèque déjà installée peut aussi
+  être exposée via `LD_LIBRARY_PATH`, comme vérifié sur la DevBox. Garder le
+  même terminal pour la migration et Uvicorn ; pour une installation durable,
+  déclarer `libpq` dans l'environnement Nix ou le service systemd plutôt que
+  figer un chemin `/nix/store/...`.
+- **`no pg_hba.conf entry`** : le serveur répond mais aucune règle ne correspond
+  à la connexion tentée. Déclarer l'accès dans
+  `services.postgresql.authentication`, pas dans le fichier généré. Limiter la
+  règle à la base, au rôle et à l'adresse nécessaires (`127.0.0.1/32` pour IPv4
+  local), avec authentification par mot de passe SCRAM. Vérifier l'ordre des
+  règles et le choix `host`/`hostssl` selon la politique TLS ; ne pas utiliser
+  `trust` ni ouvrir le réseau pour contourner l'erreur.
+- **Erreur de connexion générique** : un contrôle de disponibilité ne valide pas
+  les identifiants. Tester au besoin avec
+  `psql -h 127.0.0.1 -p 5432 -U "ROLE_FICTIF" -d "BASE_FICTIVE" -W -c 'SELECT 1;'`,
+  en remplaçant localement les noms et l'adresse. Saisir le mot de passe
+  uniquement à l'invite ; ne partager aucun secret ou configuration réelle.
+
+### Développement et release
+
+La commande ci-dessus lance le développement sur `127.0.0.1:8001`, accessible
+via **[overlay-dev.necsus.dev](https://overlay-dev.necsus.dev)** tant que le
+processus tourne. L'accès HTTPS a été contrôlé depuis le serveur et confirmé par
+l'utilisateur.
+
+**[overlay.necsus.dev](https://overlay.necsus.dev)** est réservé à la release,
+avec un proxy vers `127.0.0.1:8000`. La release figée et son service systemd ne
+sont pas encore déployés ; la configuration du domaine ne constitue pas une
+publication du code.
+
+Les deux accès passent par Nginx sur le LAN, sans exposition publique sur
+Internet. L'accès Tailscale reste séparé. Voir le
+[réseau actuel](docs/ARCHITECTURE.md#réseau-et-exploitation) et le
+[plan de publication](docs/adr/0011-exploitation-durable.md#préparer-la-première-release).
+
+Les instructions Twitch/OBS ci-dessous utilisent le domaine cible de la release.
+Pour tester la dev, utiliser `https://overlay-dev.necsus.dev` et déclarer son
+callback exact dans l'application Twitch :
+`https://overlay-dev.necsus.dev/auth/twitch/callback`. Le parcours OAuth dev
+reste à valider ; ne pas connecter les deux instances au même canal pour des
+essais simultanés.
 
 | Chemin | Usage |
-|---|---|
+| --- | --- |
 | `/admin` | Connexion Twitch et gestion du lien OBS |
 | `/health` | Vérification que le service répond |
 | `/docs` | Documentation OpenAPI |
 
 ## Connecter Twitch et OBS
 
-1. Déclarer dans l'application Twitch le callback exact : `https://overlay.necsus.dev/auth/twitch/callback`.
+1. Déclarer dans l'application Twitch le callback exact :
+   `https://overlay.necsus.dev/auth/twitch/callback`.
 2. Démarrer le service avec Twitch activé selon `.env.example`.
-3. Ouvrir `/auth/twitch/bot/login` sur le domaine HTTPS et autoriser **le compte bot configuré**, avec `user:read:chat`, `user:write:chat` et `user:bot`.
+3. Ouvrir `/auth/twitch/bot/login` sur le domaine HTTPS et autoriser **le compte
+   bot configuré**, avec `user:read:chat`, `user:write:chat` et `user:bot`.
 4. Ouvrir `/admin` avec le compte streamer et accorder `channel:bot`.
-5. Générer le lien du plugin Giveaway et le copier dans une **source navigateur OBS** :
+5. Générer le lien du plugin Giveaway et le copier dans une **source navigateur
+   OBS** :
 
 ```text
 https://overlay.necsus.dev/plugins/giveaway/overlay#<clé-OBS>
 ```
 
-Le lien est confidentiel et affiché une seule fois après génération. Le régénérer invalide l'ancien lien et déconnecte ses sources. Se déconnecter de l'administration ne coupe pas le giveaway ; changer de streamer actif déconnecte les sources de l'ancien streamer.
+Le lien est confidentiel et affiché une seule fois après génération. Le
+régénérer invalide l'ancien lien et déconnecte ses sources. Se déconnecter de
+l'administration ne coupe pas le giveaway ; changer de streamer actif déconnecte
+les sources de l'ancien streamer.
 
-Le rendu se personnalise dans le champ **CSS personnalisé** d'OBS. Éléments disponibles : `#giveaway`, `#lot`, `#status`, `#participants`, `#winner`, `#countdown`. Le compteur est masqué sans durée ou après clôture.
+Le rendu se personnalise dans le champ **CSS personnalisé** d'OBS. Éléments
+disponibles : `#giveaway`, `#lot`, `#status`, `#participants`, `#winner`,
+`#countdown`. Le compteur est masqué sans durée ou après clôture.
 
 ## Commandes Giveaway
 
 | Commande | Accès | Effet |
-|---|---|---|
+| --- | --- | --- |
 | `!galot <lot>` | Streamer | Prépare le lot et affiche l'overlay. |
 | `!gastart [secondes]` | Streamer | Ouvre les inscriptions, avec une durée facultative. |
 | `!join` | Viewer | Inscrit le viewer une seule fois. |
@@ -59,25 +144,57 @@ Le rendu se personnalise dans le champ **CSS personnalisé** d'OBS. Éléments d
 
 Exemple : `!galot Clavier mécanique`, puis `!gastart 60`.
 
-- La durée doit être un entier de **1 à 604800 secondes** (7 jours). `!gastart` seul n'active aucun minuteur.
-- À l'échéance, un gagnant est tiré automatiquement. Sans participant, le giveaway est annulé et masqué.
+- La durée doit être un entier de **1 à 604800 secondes** (7 jours). `!gastart`
+  seul n'active aucun minuteur.
+- À l'échéance, un gagnant est tiré automatiquement. Sans participant, le
+  giveaway est annulé et masqué.
 - Un tirage manuel réussi ou `!gastop` annule le minuteur.
-- Après le premier tirage, les inscriptions restent fermées ; les tirages suivants excluent les gagnants précédents.
-- L'échéance et les gagnants sont conservés après redémarrage. Une échéance dépassée est traitée à la reprise.
-- Une inscription traitée après l'échéance est refusée. Le serveur décide du tirage ; garder l'horloge du PC OBS à l'heure pour un compteur visuel correct.
+- Après le premier tirage, les inscriptions restent fermées ; les tirages
+  suivants excluent les gagnants précédents.
+- L'échéance et les gagnants sont conservés après redémarrage. Une échéance
+  dépassée est traitée à la reprise.
+- Une inscription traitée après l'échéance est refusée. Le serveur décide du
+  tirage ; garder l'horloge du PC OBS à l'heure pour un compteur visuel correct.
 
 ## Secrets et données
 
-Ne jamais versionner, partager ni afficher le contenu de `.env` ou `.tio.tokens.json`. Seul `.env.example` sert de référence partageable pour les variables attendues. Les liens OBS sont également confidentiels.
+Ne jamais versionner, partager ni afficher le contenu de `.env` ou
+`.tio.tokens.json`. Seul `.env.example` sert de référence partageable pour les
+variables attendues. Les liens OBS sont également confidentiels.
 
-Les données locales résident dans `data/` ; les noms historiques, dont `giveaway.sqlite3`, sont conservés. Ne pas les renommer pour adapter l'identité du produit.
+Les identités, giveaways, participants, gagnants et empreintes des clés OBS
+résident désormais dans PostgreSQL. `data/settings.json` reste une configuration
+locale ; les tokens Twitch restent hors de la base SQL.
+
+La migration repart à vide : l'ancien fichier SQLite de test a été supprimé avec
+accord. Après initialisation de PostgreSQL, se reconnecter dans `/admin` et
+générer de nouveaux liens OBS. Les anciens liens ne sont pas repris.
+
+### Sauvegarde PostgreSQL
+
+Utiliser `pg_dump` au format personnalisé (`-Fc`) et conserver les sauvegardes
+hors du dépôt, avec des permissions restreintes et une durée de conservation
+définie. Fournir les identifiants par un mécanisme confidentiel, jamais dans
+l'historique du terminal. `pg_dump` n'interprète pas les variables applicatives
+`PSQL_*` du fichier `.env`.
+
+Vérifier la restauration avec `pg_restore` vers **une autre base vide**, puis
+comparer les données et démarrer une instance isolée sans Twitch réel. Ne jamais
+essayer une restauration destructive sur la base utilisée. L'automatisation et
+la validation réelle de cette procédure restent à faire ; les sauvegardes SQL ne
+couvrent pas les fichiers locaux de configuration et de tokens, à protéger
+séparément.
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) : fonctionnement actuel, stockage, sécurité et limites.
-- [Roadmap](docs/ROADMAP.md) : prochaine étape, plugin Chat et évolutions prévues.
+- [Architecture](docs/ARCHITECTURE.md) : fonctionnement actuel, stockage,
+  sécurité et limites.
+- [Roadmap](docs/ROADMAP.md) : priorités et index des décisions/plans (ADR).
+- [Migration PostgreSQL](docs/MIGRATE_TO_PG.md) : contrôles effectués et
+  validations restantes.
 - [AGENTS.md](AGENTS.md) : consignes de travail pour les agents IA.
 
 ## Licence
 
-[MIT](LICENSE) — dépôt [Necsus/necsusdev-overlays](https://github.com/Necsus/necsusdev-overlays).
+[MIT](LICENSE) — dépôt
+[Necsus/necsusdev-overlays](https://github.com/Necsus/necsusdev-overlays).
