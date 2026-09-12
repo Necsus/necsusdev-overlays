@@ -13,7 +13,7 @@ canal actif ; le multi-streamer simultané n'est pas encore disponible.
 
 ## Installation et lancement
 
-Sur la DevBox NixOS, depuis `/home/necsus/dev/necsusdev-overlays`, avec Python
+Sur la DevBox NixOS, depuis `/home/necsus/dev/overlays`, avec Python
 3.11 ou plus récent et une base PostgreSQL dédiée déjà créée :
 
 ```bash
@@ -200,4 +200,4 @@ séparément.
 ## Licence
 
 [MIT](LICENSE) — dépôt
-[Necsus/necsusdev-overlays](https://github.com/Necsus/necsusdev-overlays).
+[Necsus/overlays](https://github.com/Necsus/overlays).

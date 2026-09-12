@@ -16,7 +16,7 @@ distincte du dépôt de développement. L'installation locale de dev reste dans 
 | Code figé | `/srv/overlays`, commit Git explicite |
 | Processus | service systemd NixOS, `127.0.0.1:8000`, un worker, sans `--reload` |
 | Accès | Nginx HTTPS `overlay.necsus.dev` → `8000` |
-| Dev | dépôt `/home/necsus/dev/necsusdev-overlays`, commande Python sur `8001` |
+| Dev | dépôt `/home/necsus/dev/overlays`, commande Python sur `8001` |
 | PostgreSQL | **même base `overlays` pour release et dev** (séparation reportée) |
 
 La base partagée implique un seul streamer actif, un seul giveaway et les
@@ -92,7 +92,7 @@ Depuis une session qui peut cloner le dépôt privé :
 ```bash
 sudo mkdir -p /srv/overlays
 sudo chown necsus:users /srv/overlays
-git clone git@github.com:Necsus/necsusdev-overlays.git /srv/overlays
+git clone git@github.com:Necsus/overlays.git /srv/overlays
 # Remplacer par le commit réellement retenu :
 git -C /srv/overlays checkout --detach e9a274339cdf3a9dd3d8288d29b708f0dd2acddc
 ```
@@ -171,7 +171,7 @@ copie pas `.env` ni `.tio.tokens.json`. Nginx, SSH et Tailscale restent
 intacts.
 
 ```bash
-cd /home/necsus/dev/necsusdev-overlays
+cd /home/necsus/dev/overlays
 # Le commit doit déjà exister dans ce dépôt ; les fichiers non commités ne
 # partent pas.
 git rev-parse HEAD
