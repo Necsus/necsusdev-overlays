@@ -2,8 +2,8 @@
 
 [← Roadmap](../ROADMAP.md)
 
-**Statut :** code migré et schéma version 1 prêt, confirmé par l'utilisateur ;
-validation applicative à poursuivre.
+**Statut :** implémentation et schéma version 1 clôturés ; validations métier
+SQL, OBS et sauvegardes restantes.
 
 ## Contexte
 
@@ -22,10 +22,8 @@ worker et séparer la migration du stockage de l'évolution multi-streamer.
 
 ## Travail associé et validation
 
-- [ ] Suivre le [plan de migration SQLite → PostgreSQL](../MIGRATE_TO_PG.md),
-      qui centralise les décisions, tâches et critères de validation de ce
-      chantier.
-
-Les [contrôles effectués](../MIGRATE_TO_PG.md#contrôles-déjà-effectués) ne
-remplacent pas la validation métier SQL et Twitch/OBS, dont celle du
-[giveaway chronométré](0002-giveaway-chronometre.md).
+- [x] Code, schéma version 1 et release sur PostgreSQL (détail dans le
+      [plan](../MIGRATE_TO_PG.md#contrôles-techniques-cette-revue)).
+- [ ] Validations restantes du [plan](../MIGRATE_TO_PG.md) : scénarios métier
+      isolés,
+      [giveaway chronométré](0002-giveaway-chronometre.md), sauvegardes.

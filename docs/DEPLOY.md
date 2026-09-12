@@ -5,9 +5,9 @@ distincte du dépôt de développement. L'installation locale de dev reste dans 
 [README](../README.md). Le réseau est décrit dans
 [l'architecture](ARCHITECTURE.md#réseau-et-exploitation).
 
-**État :** service `overlays.service` actif. Contrôles depuis le serveur :
-`127.0.0.1:8000/health` et `https://overlay.necsus.dev/health` répondent HTTP
-200. Le parcours Twitch/OBS n'est pas validé par ces contrôles.
+**État :** première release **clôturée**. L'utilisateur a confirmé qu'elle
+fonctionne (`overlays.service`, https://overlay.necsus.dev). Les mises à jour
+suivent la section 4.
 
 ## Décisions en vigueur
 

@@ -183,7 +183,7 @@ Deux hôtes Nginx sont déclarés dans `/etc/nixos/overlay-proxy.nix`, importé 
 | Domaine | Destination HTTPS/WebSocket | État |
 | --- | --- | --- |
 | `overlay-dev.necsus.dev` | `127.0.0.1:8001` | Accès dev opérationnel |
-| `overlay.necsus.dev` | `127.0.0.1:8000` | Release : `overlays.service`, `/health` HTTP 200 |
+| `overlay.necsus.dev` | `127.0.0.1:8000` | Release opérationnelle, confirmée par l'utilisateur |
 
 Les deux domaines pointent vers l'adresse LAN privée `192.168.1.112`, sans proxy
 Cloudflare. Nginx écoute sur cette adresse en HTTPS, port 443. Chaque domaine
@@ -193,8 +193,8 @@ Cloudflare. Aucun port applicatif supplémentaire n'a été ouvert pour la dev.
 Après activation NixOS par l'utilisateur, les contrôles depuis le serveur ont
 confirmé la résolution DNS dev, les unités Nginx et ACME dev actives, ainsi
 qu'une réponse HTTP 200 sur `/health` en HTTPS avec validation du certificat.
-L'utilisateur a confirmé l'accès dev. Ces contrôles ne valident ni PostgreSQL,
-ni Twitch/OBS, ni l'isolation entre environnements.
+L'utilisateur a confirmé l'accès dev, puis le fonctionnement de la première
+release. L'isolation des bases et les sauvegardes automatisées restent à faire.
 
 Tailscale Serve reste séparé sur son adresse privée ; aucun port Internet n'est
 redirigé et Funnel ne doit pas être activé. La résolution vers une IP LAN ne
@@ -204,8 +204,8 @@ garantit pas son accessibilité depuis un client distant via Tailscale.
 Le `PATH` du service inclut `binutils` (`ld`) pour que Psycopg trouve `libpq`.
 Release et développement partagent la base `overlays` jusqu'à séparation
 ultérieure ; Twitch ne doit être actif que sur une instance. La publication et
-les mises à jour sont dans [DEPLOY.md](DEPLOY.md). Les sauvegardes
-automatisées restent à préparer.
+les mises à jour sont dans [DEPLOY.md](DEPLOY.md). Première release clôturée ;
+les sauvegardes automatisées restent à préparer.
 
 ## Limites connues
 
@@ -224,5 +224,6 @@ automatisées restent à préparer.
   pas.
 
 Les contrôles restent ponctuels et manuels, sans suite de tests ajoutée pour la
-migration. Le [plan PostgreSQL](MIGRATE_TO_PG.md#contrôles-déjà-effectués)
-distingue contrôles statiques, simulations et confirmation sur la base réelle.
+migration. Le [plan PostgreSQL](MIGRATE_TO_PG.md#contrôles-techniques-cette-revue)
+distingue code/NixOS, confirmations utilisateur et validations SQL encore
+ouvertes.

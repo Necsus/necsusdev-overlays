@@ -23,13 +23,23 @@ python -m pip install -r requirements.txt
 # Première installation seulement, si .env n'existe pas :
 cp -n .env.example .env
 # Compléter soi-même .env avec les valeurs nécessaires.
-# Psycopg utilise libpq. Sur NixOS, si elle n'est pas déjà accessible :
-pg_lib=$(nix --extra-experimental-features 'nix-command flakes' build --no-link --print-out-paths 'nixpkgs#postgresql^lib') && export LD_LIBRARY_PATH="$pg_lib/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 python -c "import psycopg; print('Psycopg OK')"
 # Créer/mettre à jour le schéma avant de lancer l'application :
 python -m app.infrastructure.database
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 ```
+
+Psycopg a besoin de `libpq`. En **zsh**, une fois par machine, ajouter dans
+`~/.zshrc` :
+
+```zsh
+[[ -f ~/dev/overlays/scripts/zsh-libpq.zsh ]] && source ~/dev/overlays/scripts/zsh-libpq.zsh
+```
+
+Puis `source ~/.zshrc` (ou ouvrir un nouveau terminal). Le script reprend
+`LD_LIBRARY_PATH` de `overlays.service`, sans `nix-shell` et sans chemin
+`/nix/store/...` figé. `shell.nix` reste disponible si tu utilises `nix-shell`.
+La release n'en dépend pas : elle déclare `libpq` dans le service systemd.
 
 Le modèle `.env.example` décrit les paramètres `PSQL_*` : **hôte sans port**,
 port séparé, base, utilisateur, mot de passe et mode TLS. Ne pas placer le mot
@@ -57,14 +67,11 @@ projet, recréer le virtualenv.
 
 ### Dépannage PostgreSQL sur NixOS
 
-- **`libpq library not found`** : Psycopg a besoin de la bibliothèque système.
-  La commande Nix ci-dessus sélectionne la sortie `lib` et active
-  `nix-command`/`flakes` pour cet appel uniquement. La copier sur une seule
-  ligne et s'arrêter si elle échoue. Une bibliothèque déjà installée peut aussi
-  être exposée via `LD_LIBRARY_PATH`, comme vérifié sur la DevBox. Garder le
-  même terminal pour la migration et Uvicorn ; pour une installation durable,
-  déclarer `libpq` dans l'environnement Nix ou le service systemd plutôt que
-  figer un chemin `/nix/store/...`.
+- **`libpq library not found`** : vérifier que `~/.zshrc` source
+  `scripts/zsh-libpq.zsh`, puis ouvrir un **nouveau** terminal zsh (pas un
+  `nix-shell`). `echo $LD_LIBRARY_PATH` doit contenir le `lib` PostgreSQL.
+  Ne pas figer un chemin `/nix/store/...`. La release déclare `libpq` dans
+  `overlays.service`.
 - **`no pg_hba.conf entry`** : le serveur répond mais aucune règle ne correspond
   à la connexion tentée. Déclarer l'accès dans
   `services.postgresql.authentication`, pas dans le fichier généré. Limiter la
@@ -86,9 +93,8 @@ processus tourne. L'accès HTTPS a été contrôlé depuis le serveur et confirm
 l'utilisateur.
 
 **[overlay.necsus.dev](https://overlay.necsus.dev)** sert la release
-(`overlays.service` → `127.0.0.1:8000`). La procédure de publication et de mise
-à jour est dans [docs/DEPLOY.md](docs/DEPLOY.md). `/health` a répondu HTTP 200
-depuis le serveur ; le parcours Twitch/OBS reste à valider.
+(`overlays.service` → `127.0.0.1:8000`). L'utilisateur a confirmé qu'elle
+fonctionne. Publication et mises à jour : [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Release et développement partagent pour l'instant la base PostgreSQL
 `overlays`. Twitch ne doit être activé que sur une instance à la fois.

@@ -4,23 +4,19 @@ Ce fichier est l’index du travail restant. L’existant est décrit dans
 [l’architecture](ARCHITECTURE.md) ; l’installation et l’usage dans le
 [README](../README.md).
 
-## Étape en cours : première release
-
-La release tourne via `overlays.service` ; procédure dans
-[DEPLOY.md](DEPLOY.md). Release et dev partagent la base `overlays` jusqu'à
-séparation ultérieure. `/health` HTTPS a été contrôlé ; le parcours Twitch/OBS
-et les sauvegardes restent à valider.
+La première release est **opérationnelle**, confirmée par l'utilisateur :
+`overlays.service`, [DEPLOY.md](DEPLOY.md). Les mises à jour suivent
+`scripts/update-release.sh`. Aucune étape n'est ouverte pour le moment.
 
 ## Priorités et dossiers ADR
 
-La **validation applicative après migration PostgreSQL** reste prioritaire. Les
-trois dossiers « Campagnes entreprise » forment un seul chantier ; leur
+Les trois dossiers « Campagnes entreprise » forment un seul chantier ; leur
 découverte métier peut avancer en parallèle, sans autoriser le développement des
 extensions.
 
 | Ordre | Dossier |
 | --- | --- |
-| **Priorité** | [Migration PostgreSQL](adr/0001-postgresql.md) |
+| 0 | [PostgreSQL — validations restantes](adr/0001-postgresql.md) |
 | 1 | [Validation du giveaway chronométré](adr/0002-giveaway-chronometre.md) |
 | 2 | [Stabilisation sous charge](adr/0003-stabilisation-charge.md) |
 | 3 | [Plugin Chat indépendant](adr/0004-plugin-chat.md) |
