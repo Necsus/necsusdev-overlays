@@ -64,12 +64,20 @@
 
 ## Documentation
 
-- Actualiser la documentation lorsqu'une étape change le fonctionnement, une
-  décision ou l'avancement utile ; ne pas consigner chaque manipulation.
-- Conserver une seule source par information : `README.md` pour l'installation
-  et l'usage, `docs/ARCHITECTURE.md` pour l'existant technique,
-  `docs/ROADMAP.md` comme index du travail restant. Les ADR conservent les
-  décisions et orientations ; les plans liés détaillent les tâches sans les
-  dupliquer.
+- Le code est la source de vérité du comportement. Actualiser la documentation
+  lorsqu'une étape change le fonctionnement, une décision ou l'avancement
+  utile ; ne pas consigner chaque manipulation.
+- Une seule source par information : `README.md` pour l'installation et
+  l'usage, `docs/ARCHITECTURE.md` pour l'existant technique,
+  `docs/ROADMAP.md` comme index du travail restant. Les ADR **ouverts**
+  (`docs/adr/*.md` uniquement, pas les sous-dossiers) portent les décisions
+  encore actives.
+- Ne pas lire, parcourir, rechercher ni résumer `docs/adr/archive/`, sauf si
+  l'utilisateur le demande explicitement pour un fichier ou une décision close.
+  Ne pas suivre un lien vers l'archive pendant un travail courant.
+- Après clôture d'un ADR : le déplacer dans `docs/adr/archive/`, retirer son
+  entrée de la roadmap, reporter dans l'architecture ou le README l'information
+  encore utile, et faire pointer les dossiers ouverts vers l'architecture plutôt
+  que vers l'archive.
 - Distinguer l'implémenté, le validé et le prévu. Retirer les étapes obsolètes
   et utiliser des liens plutôt que dupliquer le contenu.

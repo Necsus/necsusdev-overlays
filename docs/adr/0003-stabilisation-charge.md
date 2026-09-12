@@ -17,7 +17,10 @@ lents.
 ## Conséquences
 
 Ne pas ajouter Redis, microservices, pool SQL ou workers multiples sans besoin
-mesuré. Coordonner la validation SQL avec [ADR-0001](0001-postgresql.md).
+mesuré. Le modèle SQL (une connexion par transaction, pas de pool sans mesure)
+est celui de l'[architecture](../ARCHITECTURE.md#données-et-configuration) ;
+les contrôles isolés et les sauvegardes sont dans
+[ADR-0011](0011-exploitation-durable.md).
 
 ## Travail associé et validation
 

@@ -2,8 +2,7 @@
 
 Procédure pour publier une version figée sur **https://overlay.necsus.dev**,
 distincte du dépôt de développement. L'installation locale de dev reste dans le
-[README](../README.md). Le réseau est décrit dans
-[l'architecture](ARCHITECTURE.md#réseau-et-exploitation).
+[README](../README.md).
 
 **État :** première release **clôturée**. L'utilisateur a confirmé qu'elle
 fonctionne (`overlays.service`, https://overlay.necsus.dev). Les mises à jour

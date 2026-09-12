@@ -16,28 +16,27 @@ extensions.
 
 | Ordre | Dossier |
 | --- | --- |
-| 0 | [PostgreSQL — validations restantes](adr/0001-postgresql.md) |
-| 1 | [Validation du giveaway chronométré](adr/0002-giveaway-chronometre.md) |
-| 2 | [Stabilisation sous charge](adr/0003-stabilisation-charge.md) |
-| 3 | [Plugin Chat indépendant](adr/0004-plugin-chat.md) |
-| 4 | [Isolation multi-streamer](adr/0005-multi-streamer.md) |
-| 5 | [Bibliothèque de styles CSS Giveaway](adr/0006-styles-css-giveaway.md) |
-| 6 | [Alertes Points de chaîne](adr/0007-points-de-chaine.md) |
-| 7 | [Campagnes entreprise — MVP et objectifs OBS](adr/0008-campagnes-mvp.md) |
-| 8 | [Campagnes entreprise — intégrations, attribution et sécurité](adr/0009-campagnes-integrations.md) |
-| 9 | [Campagnes entreprise — découverte et parcours métier](adr/0010-campagnes-decouverte.md) |
-| 10 | [Exploitation durable](adr/0011-exploitation-durable.md) |
+| 0 | [Stabilisation sous charge](adr/0003-stabilisation-charge.md) |
+| 1 | [Plugin Chat indépendant](adr/0004-plugin-chat.md) |
+| 2 | [Isolation multi-streamer](adr/0005-multi-streamer.md) |
+| 3 | [Bibliothèque de styles CSS Giveaway](adr/0006-styles-css-giveaway.md) |
+| 4 | [Alertes Points de chaîne](adr/0007-points-de-chaine.md) |
+| 5 | [Campagnes entreprise — MVP et objectifs OBS](adr/0008-campagnes-mvp.md) |
+| 6 | [Campagnes entreprise — intégrations, attribution et sécurité](adr/0009-campagnes-integrations.md) |
+| 7 | [Campagnes entreprise — découverte et parcours métier](adr/0010-campagnes-decouverte.md) |
+| 8 | [Exploitation durable](adr/0011-exploitation-durable.md) |
 
 ## Lire et actualiser les dossiers
 
-- Les ADR précisent contexte, décision ou orientation, conséquences et statut.
-  Certains suivent une validation plutôt qu'une nouvelle décision
+- Les ADR ouverts précisent contexte, décision ou orientation, conséquences et
+  statut. Certains suivent une validation plutôt qu'une nouvelle décision
   d'architecture.
-- Les tâches et critères de fin restent dans le dossier concerné ou son plan
-  lié, comme le [plan PostgreSQL](MIGRATE_TO_PG.md), sans duplication.
-- Après validation, retirer les tâches terminées et fermer l'entrée de cet
-  index. Conserver la décision et son statut dans l'ADR. Mettre à jour
-  l'architecture ou le README selon l'information.
+- Les tâches et critères de fin restent dans le dossier concerné, sans
+  duplication. Les validations PostgreSQL isolées et les sauvegardes sont dans
+  [ADR-0011](adr/0011-exploitation-durable.md).
+- Après clôture, retirer l'entrée de cet index et déplacer l'ADR vers
+  `adr/archive/`. Reporter dans l'architecture ou le README l'information
+  encore utile. Les dossiers ouverts ne pointent pas vers l'archive.
 - Les règles de travail, de sécurité et d'autorisation restent dans
   [AGENTS.md](../AGENTS.md). Aucun plan ne vaut autorisation de coder, créer des
   tests/scripts ou modifier le réseau.

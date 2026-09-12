@@ -99,10 +99,6 @@ fonctionne. Publication et mises à jour : [docs/DEPLOY.md](docs/DEPLOY.md).
 Release et développement partagent pour l'instant la base PostgreSQL
 `overlays`. Twitch ne doit être activé que sur une instance à la fois.
 
-Les deux accès passent par Nginx sur le LAN, sans exposition publique sur
-Internet. L'accès Tailscale reste séparé. Voir le
-[réseau actuel](docs/ARCHITECTURE.md#réseau-et-exploitation).
-
 Les instructions Twitch/OBS ci-dessous utilisent le domaine cible de la release.
 Pour tester la dev, utiliser `https://overlay-dev.necsus.dev` et déclarer son
 callback exact dans l'application Twitch :
@@ -163,6 +159,8 @@ Exemple : `!galot Clavier mécanique`, puis `!gastart 60`.
   dépassée est traitée à la reprise.
 - Une inscription traitée après l'échéance est refusée. Le serveur décide du
   tirage ; garder l'horloge du PC OBS à l'heure pour un compteur visuel correct.
+  Le premier tick peut afficher `durée + 1` (arrondi supérieur) ; l'échéance
+  serveur reste exacte.
 
 ## Secrets et données
 
@@ -189,7 +187,8 @@ l'historique du terminal. `pg_dump` n'interprète pas les variables applicatives
 Vérifier la restauration avec `pg_restore` vers **une autre base vide**, puis
 comparer les données et démarrer une instance isolée sans Twitch réel. Ne jamais
 essayer une restauration destructive sur la base utilisée. L'automatisation et
-la validation réelle de cette procédure restent à faire ; les sauvegardes SQL ne
+la validation réelle restent dans
+[ADR-0011](docs/adr/0011-exploitation-durable.md) ; les sauvegardes SQL ne
 couvrent pas les fichiers locaux de configuration et de tokens, à protéger
 séparément.
 
@@ -198,9 +197,7 @@ séparément.
 - [Architecture](docs/ARCHITECTURE.md) : fonctionnement actuel, stockage,
   sécurité et limites.
 - [Déploiement](docs/DEPLOY.md) : publication de la release sur NixOS.
-- [Roadmap](docs/ROADMAP.md) : priorités et index des décisions/plans (ADR).
-- [Migration PostgreSQL](docs/MIGRATE_TO_PG.md) : contrôles effectués et
-  validations restantes.
+- [Roadmap](docs/ROADMAP.md) : priorités et index des décisions (ADR).
 - [AGENTS.md](AGENTS.md) : consignes de travail pour les agents IA.
 
 ## Licence

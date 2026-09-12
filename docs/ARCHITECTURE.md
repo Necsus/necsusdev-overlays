@@ -7,9 +7,10 @@ Ce document décrit **l'implémentation actuelle**. Les évolutions sont dans la
 ## Structure et flux
 
 Python, FastAPI, TwitchIO 3/EventSub, PostgreSQL via Psycopg 3 asynchrone et
-frontend HTML/JavaScript natif. Le schéma PostgreSQL version 1 est prêt ; les
-validations métier SQL et Twitch/OBS restent ouvertes dans le
-[plan de migration](MIGRATE_TO_PG.md).
+frontend HTML/JavaScript natif. Le schéma PostgreSQL version 1 est prêt. Le
+parcours giveaway Twitch → OBS, y compris le minuteur, est validé. Les
+contrôles SQL isolés, les clés OBS, les coupures SQL et les sauvegardes
+restent dans [ADR-0011](adr/0011-exploitation-durable.md).
 
 ```text
 Chat du streamer actif → TwitchIO → commandes → service → moteur + PostgreSQL
@@ -168,44 +169,13 @@ L'état initial et les diffusions ont la même enveloppe :
 `closes_at` vaut une date ISO 8601 ou `null`. Un gagnant contient
 `twitch_user_id` et `display_name`. `overlay_snapshot()` exclut la liste des
 participants ; `snapshot()` conserve l'instantané complet interne. Le compteur
-OBS est calculé localement, sans diffusion chaque seconde. Les textes utilisent
-`textContent`.
+OBS est calculé localement (`Math.ceil`), sans diffusion chaque seconde : le
+premier tick peut afficher `durée + 1` sans allonger l'échéance serveur. Les
+textes utilisent `textContent`.
 
 Les assets administratifs et ceux du plugin ont des montages distincts. Les
 anciennes routes `/overlay`, `/api/state` et `/ws/overlay` ne sont plus
 disponibles.
-
-## Réseau et exploitation
-
-Deux hôtes Nginx sont déclarés dans `/etc/nixos/overlay-proxy.nix`, importé par
-`/etc/nixos/configuration.nix` :
-
-| Domaine | Destination HTTPS/WebSocket | État |
-| --- | --- | --- |
-| `overlay-dev.necsus.dev` | `127.0.0.1:8001` | Accès dev opérationnel |
-| `overlay.necsus.dev` | `127.0.0.1:8000` | Release opérationnelle, confirmée par l'utilisateur |
-
-Les deux domaines pointent vers l'adresse LAN privée `192.168.1.112`, sans proxy
-Cloudflare. Nginx écoute sur cette adresse en HTTPS, port 443. Chaque domaine
-dispose d'une déclaration de certificat Let's Encrypt via ACME DNS-01
-Cloudflare. Aucun port applicatif supplémentaire n'a été ouvert pour la dev.
-
-Après activation NixOS par l'utilisateur, les contrôles depuis le serveur ont
-confirmé la résolution DNS dev, les unités Nginx et ACME dev actives, ainsi
-qu'une réponse HTTP 200 sur `/health` en HTTPS avec validation du certificat.
-L'utilisateur a confirmé l'accès dev, puis le fonctionnement de la première
-release. L'isolation des bases et les sauvegardes automatisées restent à faire.
-
-Tailscale Serve reste séparé sur son adresse privée ; aucun port Internet n'est
-redirigé et Funnel ne doit pas être activé. La résolution vers une IP LAN ne
-garantit pas son accessibilité depuis un client distant via Tailscale.
-
-`overlays.service` écoute sur `127.0.0.1:8000` (un worker, sans `--reload`).
-Le `PATH` du service inclut `binutils` (`ld`) pour que Psycopg trouve `libpq`.
-Release et développement partagent la base `overlays` jusqu'à séparation
-ultérieure ; Twitch ne doit être actif que sur une instance. La publication et
-les mises à jour sont dans [DEPLOY.md](DEPLOY.md). Première release clôturée ;
-les sauvegardes automatisées restent à préparer.
 
 ## Limites connues
 
@@ -223,7 +193,6 @@ les sauvegardes automatisées restent à préparer.
   pour 10 000 spectateurs ; les anciens essais HTTP simples ne la démontrent
   pas.
 
-Les contrôles restent ponctuels et manuels, sans suite de tests ajoutée pour la
-migration. Le [plan PostgreSQL](MIGRATE_TO_PG.md#contrôles-techniques-cette-revue)
-distingue code/NixOS, confirmations utilisateur et validations SQL encore
-ouvertes.
+Les contrôles restent ponctuels et manuels, sans suite de tests ajoutée. Les
+validations SQL isolées, clés OBS, coupures SQL et sauvegardes restent dans
+[ADR-0011](adr/0011-exploitation-durable.md).
