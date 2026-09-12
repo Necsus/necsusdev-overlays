@@ -304,4 +304,53 @@ async function loadAdminSession() {
   }
 }
 
+// Navigation locale uniquement : aucun appel métier ni reconstruction des aperçus.
+function initializeAdminNavigation() {
+  const pages = document.querySelectorAll("[data-admin-page]");
+  const giveawayViews = document.querySelectorAll("[data-giveaway-view]");
+  const links = document.querySelectorAll("[data-admin-link]");
+  const routes = new Map([
+    ["account", { page: "account", heading: "account-title", title: "Compte & connexion" }],
+    ["giveaway-preview", { page: "giveaway", view: "preview", heading: "giveaway-preview-title", title: "Giveaway — Aperçu" }],
+    ["giveaway-obs", { page: "giveaway", view: "obs", heading: "overlay-title", title: "Giveaway — OBS" }],
+    ["chat", { page: "chat", heading: "chat-plugin-title", title: "Chat — Prévu" }],
+  ]);
+
+  function showRoute(moveFocus = false) {
+    const requested = window.location.hash.slice(1);
+    const routeKey = routes.has(requested) ? requested : "giveaway-preview";
+    const route = routes.get(routeKey);
+
+    for (const page of pages) {
+      page.hidden = page.dataset.adminPage !== route.page;
+    }
+    for (const view of giveawayViews) {
+      view.hidden = view.dataset.giveawayView !== route.view;
+    }
+    for (const link of links) {
+      const key = link.dataset.adminLink;
+      if (key === routeKey) {
+        link.setAttribute("aria-current", "page");
+      } else if (key === route.page) {
+        link.setAttribute("aria-current", "true");
+      } else {
+        link.removeAttribute("aria-current");
+      }
+    }
+
+    document.title = `${route.title} · NecsusDevOverlays`;
+    if (moveFocus && !connectedState.hidden) {
+      document.getElementById(route.heading).focus();
+    }
+  }
+
+  document.querySelector(".skip-link").addEventListener("click", (event) => {
+    event.preventDefault();
+    document.getElementById("admin-content").focus();
+  });
+  window.addEventListener("hashchange", () => showRoute(true));
+  showRoute();
+}
+
+initializeAdminNavigation();
 loadAdminSession();

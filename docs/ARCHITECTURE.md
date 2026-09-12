@@ -177,6 +177,30 @@ Les assets administratifs et ceux du plugin ont des montages distincts. Les
 anciennes routes `/overlay`, `/api/state` et `/ws/overlay` ne sont plus
 disponibles.
 
+## Administration et aperçus
+
+`/admin` sépare le compte et la connexion Twitch des espaces de plugins. Une
+navigation locale par fragments d’URL sélectionne une seule vue à la fois :
+`#account`, `#giveaway-preview`, `#giveaway-obs` et `#chat`. Les boutons
+précédent/suivant du navigateur sont pris en charge ; les vues restent dans le
+DOM afin de conserver le brouillon CSS lors d’un changement d’espace.
+
+Giveaway propose un aperçu et une vue de connexion OBS, utilisant les mêmes API
+que précédemment. L’entrée Chat est uniquement une présentation « prévu » :
+aucun aperçu, accès OBS ou appel d’API Chat n’est implémenté. Ajouter un plugin
+implique sa navigation et ses vues propres, sans framework de plugins générique.
+
+L’aperçu Giveaway utilise les données fictives et le renderer commun dans une
+iframe `sandbox="allow-scripts"`, sans origine partagée avec l’administration.
+Son viewport reste à 900 × 500 pixels ; un conteneur défilant l’accueille sur les
+petits écrans sans changer les dimensions de rendu. La navigation ne reconstruit
+pas l’iframe ; appliquer du CSS ou changer de scénario reconstruit son `srcdoc`.
+Le CSS n’est ni persisté ni envoyé à OBS. La CSP bloque les ressources externes.
+
+La structure HTML, les références DOM et la navigation ont fait l’objet de
+contrôles ponctuels, dont une simulation DOM. Le rendu responsive et les
+interactions réelles dans le navigateur restent à valider après cette refonte.
+
 ## Limites connues
 
 - Une connexion et un commit par inscription : l'accès SQL est asynchrone, mais

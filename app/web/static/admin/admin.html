@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0f0f12">
+    <meta name="theme-color" content="#101116">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/admin.css">
     <script src="/static/admin.js" defer></script>
@@ -11,235 +11,219 @@
     <title>NecsusDevOverlays — Administration</title>
   </head>
   <body>
-    <div class="page-shell">
-      <header class="site-header">
-        <a class="brand" href="/admin" aria-label="NecsusDevOverlays — Administration">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="img">
-              <path d="M4 10h16v10H4zM3 6h18v4H3zM12 6v14M7.5 6C5 6 4.5 2.5 7 2.5c3 0 5 3.5 5 3.5m4.5 0C19 6 19.5 2.5 17 2.5c-3 0-5 3.5-5 3.5"/>
-            </svg>
-          </span>
-          <span>NecsusDevOverlays</span>
-        </a>
-        <span class="header-label">Administration</span>
-      </header>
+    <a class="skip-link" href="#admin-content">Aller au contenu</a>
+    <header class="site-header">
+      <a class="brand" href="/admin" aria-label="NecsusDevOverlays — Administration">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>NecsusDev<span class="brand-suffix">Overlays</span></span>
+      </a>
+      <h1 id="page-title">Studio overlays</h1>
+      <span class="header-label">Administration</span>
+    </header>
 
-      <main class="main-content" aria-labelledby="page-title">
-        <div class="page-heading">
-          <p class="eyebrow">Tableau de bord</p>
-          <h1 id="page-title">Votre espace overlays</h1>
-          <p class="page-description">
-            Gérez votre connexion Twitch et retrouvez les informations utiles à votre diffusion.
-          </p>
-        </div>
+    <main id="admin-content" class="main-content" aria-labelledby="page-title" tabindex="-1">
+      <section id="loading-state" class="auth-shell panel loading-panel" aria-label="Chargement de la session">
+        <span class="spinner" aria-hidden="true"></span>
+        <p>Chargement de votre espace…</p>
+      </section>
 
-        <section id="loading-state" class="panel loading-panel" aria-label="Chargement de la session">
-          <span class="spinner" aria-hidden="true"></span>
-          <p>Chargement de votre espace…</p>
-        </section>
+      <section id="disconnected-state" class="auth-shell panel auth-panel" aria-labelledby="connection-title" hidden>
+        <p class="eyebrow">Votre diffusion, votre style</p>
+        <h2 id="connection-title">Un espace pour vos overlays.</h2>
+        <p>Connectez votre compte Twitch pour retrouver vos accès OBS et préparer le rendu de vos plugins.</p>
+        <a class="button button-primary" href="/auth/twitch/login">Se connecter avec Twitch</a>
+      </section>
 
-        <section id="disconnected-state" class="panel auth-panel" aria-labelledby="connection-title" hidden>
-          <div class="auth-visual" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="img">
-              <path d="M5 3h16v11l-5 5h-4l-3 3v-3H5V3Z"/>
-              <path d="M9 7v6m5-6v6"/>
-            </svg>
-          </div>
-          <div class="auth-content">
-            <span class="status-pill status-neutral">
-              <span class="status-dot"></span>
-              Session déconnectée
-            </span>
-            <h2 id="connection-title">Connectez votre compte Twitch</h2>
-            <p>
-              Identifiez-vous pour accéder aux informations de votre chaîne et configurer votre source OBS.
-            </p>
-            <a class="button button-primary" href="/auth/twitch/login">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 3h16v11l-5 5h-4l-3 3v-3H5V3Z"/>
-                <path d="M9 7v6m5-6v6"/>
-              </svg>
-              Se connecter avec Twitch
+      <div id="connected-state" class="studio-layout" hidden>
+        <aside class="sidebar" aria-label="Navigation du studio">
+          <nav aria-label="Espace personnel">
+            <p class="nav-label">Espace personnel</p>
+            <a class="nav-link" href="#account" data-admin-link="account">
+              <span class="nav-icon" aria-hidden="true">◎</span> Compte & connexion
             </a>
-          </div>
-        </section>
+          </nav>
+          <nav aria-label="Plugins">
+            <p class="nav-label">Plugins</p>
+            <ul class="plugin-navigation">
+              <li>
+                <a class="nav-link" href="#giveaway-preview" data-admin-link="giveaway">
+                  <span class="nav-icon" aria-hidden="true">◇</span>
+                  <span>Giveaway</span>
+                </a>
+              </li>
+              <li>
+                <a class="nav-link" href="#chat" data-admin-link="chat">
+                  <span class="nav-icon" aria-hidden="true">≋</span>
+                  <span>Chat</span><span class="badge badge-planned">Prévu</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+          <p class="sidebar-note">Chaque plugin dispose de son espace. Seul Giveaway est disponible pour le moment.</p>
+        </aside>
 
-        <section id="connected-state" class="dashboard" aria-labelledby="profile-title" hidden>
-          <div class="panel profile-panel">
-            <div class="profile-identity">
-              <div class="avatar-frame">
-                <img id="streamer-avatar" width="72" height="72" alt="" hidden>
-                <span id="avatar-fallback" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M20 21a8 8 0 0 0-16 0m12-13a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/>
-                  </svg>
-                </span>
-              </div>
-              <div>
-                <p class="section-kicker">Compte Twitch</p>
-                <h2 id="profile-title"><span id="streamer-display-name"></span></h2>
-                <p id="streamer-login" class="profile-login"></p>
-              </div>
-            </div>
-            <span class="status-pill status-success">
-              <span class="status-dot"></span>
-              Session connectée
-            </span>
-          </div>
+        <div class="workspace">
+          <section data-admin-page="giveaway" aria-labelledby="plugin-giveaway-title">
+            <header class="workspace-heading">
+              <p class="eyebrow">Plugins / Giveaway</p>
+              <h2 id="plugin-giveaway-title" tabindex="-1">Giveaway</h2>
+              <p>Préparez le rendu de votre tirage, puis connectez sa source dans OBS.</p>
+            </header>
+            <nav class="view-navigation" aria-label="Outils Giveaway">
+              <a href="#giveaway-preview" data-admin-link="giveaway-preview" aria-current="page">Aperçu & CSS</a>
+              <a href="#giveaway-obs" data-admin-link="giveaway-obs">Connexion OBS</a>
+            </nav>
 
-          <dl class="status-grid" aria-label="État des services">
-            <div class="status-card">
-              <div class="status-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M4 5h16v12H4zM8 21h8m-4-4v4M8 9h8m-8 4h5"/></svg>
+            <section data-giveaway-view="preview" aria-labelledby="giveaway-preview-title">
+              <div class="preview-toolbar">
+                <div>
+                  <h3 id="giveaway-preview-title" tabindex="-1">Prévisualisation</h3>
+                  <p class="muted">Données fictives · aucun effet sur votre diffusion</p>
+                </div>
+                <div class="scenario-field">
+                  <label for="giveaway-preview-scenario">Scénario</label>
+                  <select id="giveaway-preview-scenario">
+                    <option value="hidden">Masqué</option>
+                    <option value="openTimed">Ouvert avec temps</option>
+                    <option value="waiting">En attente</option>
+                    <option value="open">Ouvert</option>
+                    <option value="winner">Gagnant</option>
+                    <option value="multipleWinners">Plusieurs gagnants</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <dt>Streamer actif</dt>
-                <dd id="active-streamer"></dd>
+              <div class="preview-surface">
+                <div class="preview-meta"><span>Aperçu isolé</span><span>900 × 500 px · taille réelle</span></div>
+                <div class="preview-viewport" tabindex="0" role="region" aria-label="Aperçu 900 par 500 pixels, défilement horizontal si nécessaire">
+                  <iframe
+                    id="giveaway-preview-frame"
+                    title="Aperçu du giveaway avec des données fictives"
+                    width="900"
+                    height="500"
+                    sandbox="allow-scripts"
+                    referrerpolicy="no-referrer"
+                  ></iframe>
+                </div>
               </div>
-            </div>
+              <p id="giveaway-preview-note" class="preview-note" role="status">Données fictives - aucun effet sur le giveaway réel.</p>
 
-            <div class="status-card">
-              <div class="status-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 3v3m-5.5.5 2.1 2.1M3 12h3m.5 5.5 2.1-2.1M12 18v3m5.5-3.5-2.1-2.1M18 12h3m-3.5-5.5-2.1 2.1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
-              </div>
-              <div>
-                <dt>Bot global</dt>
-                <dd id="bot-login"></dd>
-              </div>
-            </div>
+              <section class="panel css-editor" aria-labelledby="css-editor-title">
+                <div class="section-heading">
+                  <div>
+                    <h3 id="css-editor-title">Style personnalisé</h3>
+                    <p class="muted">Un brouillon local à cette page. Rien n’est sauvegardé ni envoyé dans OBS.</p>
+                  </div>
+                  <span class="badge">CSS</span>
+                </div>
+                <label for="giveaway-preview-css">CSS à prévisualiser</label>
+                <textarea
+                  id="giveaway-preview-css"
+                  rows="9"
+                  spellcheck="false"
+                  placeholder="#lot { color: gold; }"
+                  aria-describedby="preview-css-help preview-css-network"
+                ></textarea>
+                <p id="preview-css-help" class="field-help">Sélecteurs : <code>#giveaway</code>, <code>#lot</code>, <code>#status</code>, <code>#participants</code>, <code>#countdown</code>, <code>#winner</code>.</p>
+                <div class="editor-actions">
+                  <p id="preview-css-network" class="field-help">Imports, images et polices externes bloqués dans l’aperçu. Un changement de scénario applique aussi le CSS saisi.</p>
+                  <button id="giveaway-preview-apply" class="button button-primary" type="button">Appliquer à l’aperçu</button>
+                </div>
+              </section>
+            </section>
 
-            <div class="status-card">
-              <div class="status-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M5 12.5 9.5 17 19 7.5"/></svg>
-              </div>
-              <div>
-                <dt>Abonnement au chat</dt>
-                <dd><span id="chat-status" class="service-status" role="status"></span></dd>
-              </div>
-            </div>
-          </dl>
-
-          <section class="panel obs-panel" aria-labelledby="overlay-title">
-            <div class="section-heading">
-              <div class="section-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8m-8 4h5"/></svg>
-              </div>
-              <div>
-                <p class="section-kicker">Plugin giveaway</p>
-                <h3 id="overlay-title">Accès OBS sécurisé</h3>
-              </div>
-            </div>
-
-            <p id="overlay-description" class="section-description">
-              Générez une adresse confidentielle pour afficher ce giveaway dans une source navigateur OBS.
-            </p>
-
-            <div class="overlay-access-summary">
-              <div>
-                <span id="overlay-access-badge" class="status-pill status-neutral">
-                  <span class="status-dot" aria-hidden="true"></span>
-                  <span id="overlay-access-label">Vérification de l’accès…</span>
-                </span>
-                <p id="overlay-rotated-at" class="overlay-rotated-at"></p>
-              </div>
-
-              <button
-                id="rotate-overlay-access"
-                class="button button-primary"
-                type="button"
-                disabled
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5m9.5-3A7 7 0 0 0 6.2 6M5.5 15A7 7 0 0 0 17.8 18"/></svg>
-                <span id="rotate-overlay-access-label">Générer le lien</span>
-              </button>
-            </div>
-
-            <div class="overlay-url-field">
-              <label class="field-label" for="overlay-url">Adresse de la source navigateur</label>
-              <div class="copy-field">
-                <input
-                  id="overlay-url"
-                  type="url"
-                  placeholder="Générez un nouveau lien OBS sécurisé"
-                  aria-describedby="overlay-url-help copy-status"
-                  readonly
-                >
-                <button
-                  id="copy-overlay-url"
-                  class="button button-secondary"
-                  type="button"
-                  disabled
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v11H9zM5 15H4V4h10v1"/></svg>
-                  <span>Copier</span>
+            <section data-giveaway-view="obs" class="panel connection-panel" aria-labelledby="overlay-title" hidden>
+              <header class="section-heading">
+                <div>
+                  <p class="eyebrow">Source navigateur / Giveaway</p>
+                  <h3 id="overlay-title" tabindex="-1">Connexion OBS</h3>
+                </div>
+              </header>
+              <p id="overlay-description" class="muted">Générez un lien confidentiel, puis collez-le dans le champ URL d’une source navigateur OBS.</p>
+              <div class="overlay-access-summary">
+                <div>
+                  <span id="overlay-access-badge" class="status-pill status-neutral">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span id="overlay-access-label">Vérification de l’accès…</span>
+                  </span>
+                  <p id="overlay-rotated-at" class="field-help"></p>
+                </div>
+                <button id="rotate-overlay-access" class="button button-secondary" type="button" disabled>
+                  <span id="rotate-overlay-access-label">Générer le lien</span>
                 </button>
               </div>
+              <label for="overlay-url">Adresse confidentielle de la source</label>
+              <div class="copy-field">
+                <input id="overlay-url" type="url" placeholder="Générez un nouveau lien OBS sécurisé" aria-describedby="overlay-url-help copy-status" readonly>
+                <button id="copy-overlay-url" class="button button-primary" type="button" disabled><span>Copier</span></button>
+              </div>
               <p id="copy-status" class="feedback" role="status" aria-live="polite"></p>
-            </div>
-
-            <div id="overlay-url-help" class="security-note">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5zM12 14v3"/></svg>
-              <p>
-                <strong>Conservez ce lien confidentiel.</strong>
-                Il n’est affiché qu’après sa génération. Le régénérer invalidera immédiatement l’ancienne source OBS.
-              </p>
-            </div>
+              <div id="overlay-url-help" class="security-note">
+                <strong>Ce lien donne accès à votre overlay.</strong>
+                <p>Il n’est affiché qu’après sa génération. Le régénérer invalide immédiatement l’ancienne source OBS. Ne le partagez pas.</p>
+              </div>
+              <p class="field-help">Le CSS de l’aperçu ne se synchronise pas avec OBS. Copiez votre bloc dans le champ « CSS personnalisé » de la source. Relisez-le : dans OBS, il peut masquer du contenu et charger des ressources externes.</p>
+            </section>
           </section>
 
-          <section class="panel" aria-labelledby="giveaway-preview-title">
-            <h3 id="giveaway-preview-title">Prévisualisation Giveaway</h3>
-            <label for="giveaway-preview-scenario">Scénario</label>
-            <select id="giveaway-preview-scenario">
-              <option value="hidden">Masqué</option>
-              <option value="openTimed">Ouvert avec temps</option>
-              <option value="waiting">En attente</option>
-              <option value="open">Ouvert</option>
-              <option value="winner">Gagnant</option>
-              <option value="multipleWinners">Gagnants Multiple</option>
-            </select>
-
-            <p id="giveaway-preview-note" role="status">
-              Données fictives - aucun effet sur le giveaway réel.
-            </p>
-
-            <iframe
-              id="giveaway-preview-frame"
-              title="Aperçu du giveaway avec des données fictives"
-              sandbox="allow-scripts"
-              referrerpolicy="no-referrer"
-            ></iframe>
-          </section>
-
-          <section class="session-footer" aria-labelledby="logout-title">
-            <div>
-              <h3 id="logout-title">Session administrative</h3>
-              <p>La déconnexion ne coupe pas le giveaway en cours.</p>
+          <section data-admin-page="account" aria-labelledby="account-title" hidden>
+            <header class="workspace-heading">
+              <p class="eyebrow">Espace personnel</p>
+              <h2 id="account-title" tabindex="-1">Compte & connexion</h2>
+              <p>Votre identité et la connexion Twitch, communes aux plugins.</p>
+            </header>
+            <div class="panel profile-panel">
+              <div class="profile-identity">
+                <div class="avatar-frame">
+                  <img id="streamer-avatar" width="56" height="56" alt="" hidden>
+                  <span id="avatar-fallback" aria-hidden="true">◎</span>
+                </div>
+                <div>
+                  <p class="eyebrow">Compte Twitch</p>
+                  <h3 id="profile-title"><span id="streamer-display-name"></span></h3>
+                  <p id="streamer-login" class="muted"></p>
+                </div>
+              </div>
+              <span class="status-pill status-success"><span class="status-dot" aria-hidden="true"></span>Session connectée</span>
             </div>
-            <button id="logout-button" class="button button-ghost" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5m4-3 4-4-4-4m4 4H9"/></svg>
-              Se déconnecter
-            </button>
-            <p id="logout-status" class="feedback feedback-error" role="alert"></p>
+            <dl class="status-grid" aria-label="État des services Twitch">
+              <div class="status-card"><dt>Streamer actif</dt><dd id="active-streamer"></dd></div>
+              <div class="status-card"><dt>Bot global</dt><dd id="bot-login"></dd></div>
+              <div class="status-card"><dt>Réception du chat Twitch</dt><dd><span id="chat-status" class="service-status" role="status"></span></dd></div>
+            </dl>
+            <p class="field-help">La réception du chat Twitch alimente les commandes. Elle ne signifie pas que le plugin d’overlay Chat est disponible.</p>
+            <section class="panel session-panel" aria-labelledby="logout-title">
+              <div>
+                <h3 id="logout-title">Session administrative</h3>
+                <p class="muted">La déconnexion ne coupe pas le giveaway en cours.</p>
+              </div>
+              <button id="logout-button" class="button button-secondary" type="button">Se déconnecter</button>
+              <p id="logout-status" class="feedback feedback-error" role="alert"></p>
+            </section>
           </section>
-        </section>
 
-        <section id="admin-error" class="panel error-panel" role="alert" hidden>
-          <div class="error-icon" aria-hidden="true">!</div>
-          <div>
-            <h2>Impossible de charger l’administration</h2>
-            <p>Vérifiez votre connexion puis actualisez la page.</p>
-          </div>
-          <button id="retry-button" class="button button-secondary" type="button">
-            Réessayer
-          </button>
-        </section>
-      </main>
+          <section data-admin-page="chat" aria-labelledby="chat-plugin-title" hidden>
+            <header class="workspace-heading">
+              <p class="eyebrow">Plugins / Chat</p>
+              <h2 id="chat-plugin-title" tabindex="-1">Chat <span class="badge badge-planned">Prévu</span></h2>
+              <p>Un futur espace dédié à l’affichage du chat dans OBS.</p>
+            </header>
+            <div class="panel planned-panel">
+              <span class="planned-icon" aria-hidden="true">≋</span>
+              <h3>Le plugin Chat n’est pas encore implémenté.</h3>
+              <p>Son aperçu et sa connexion OBS auront leur place ici, indépendamment de Giveaway. Aucun lien ni aperçu Chat n’est disponible aujourd’hui.</p>
+              <a class="button button-secondary" href="#giveaway-preview">Revenir à Giveaway</a>
+            </div>
+          </section>
+        </div>
+      </div>
 
-      <footer class="site-footer">
-        <span>NecsusDevOverlays</span>
-        <span aria-hidden="true">·</span>
-        <span>Propulsé par Twitch</span>
-      </footer>
-    </div>
+      <section id="admin-error" class="auth-shell panel error-panel" role="alert" hidden>
+        <p class="eyebrow">Connexion interrompue</p>
+        <h2>Impossible de charger l’administration</h2>
+        <p>Vérifiez votre connexion puis actualisez la page.</p>
+        <button id="retry-button" class="button button-secondary" type="button">Réessayer</button>
+      </section>
+    </main>
+    <footer class="site-footer">NecsusDevOverlays <span aria-hidden="true">/</span> Propulsé par Twitch</footer>
   </body>
 </html>
