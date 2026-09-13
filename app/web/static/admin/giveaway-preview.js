@@ -80,8 +80,8 @@ async function initializeGiveawayPreview() {
       previewCss.value,
     );
     previewNote.textContent = scenarioKey === "hidden"
-      ? "État masqué : l'overlay reste invisible. Données fictives — aucun effet sur le giveaway réel."
-      : "Données fictives - aucun effet sur le giveaway réel.";
+      ? "Scénario masqué. L’aperçu est invisible."
+      : "Données fictives. Aucun effet sur le giveaway réel.";
   }
 
   scenarioSelect.addEventListener("change", () => {

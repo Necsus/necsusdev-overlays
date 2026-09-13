@@ -5,7 +5,7 @@ from app.infrastructure.database import Database
 
 async def rotate_overlay_access_key(
     database: Database, streamer_id: str, plugin_slug: str, token_hash: str
-) -> None:
+) -> str:
     now = datetime.now(UTC)
     async with database.transaction() as connection, connection.cursor() as cursor:
         await cursor.execute(
@@ -17,6 +17,7 @@ async def rotate_overlay_access_key(
                        rotated_at = excluded.rotated_at""",
             (streamer_id, plugin_slug, token_hash, now, now),
         )
+    return now.isoformat()
 
 
 async def resolve_overlay_access_key(

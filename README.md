@@ -127,10 +127,13 @@ essais simultanés.
 https://overlay.necsus.dev/plugins/giveaway/overlay#<clé-OBS>
 ```
 
-Le lien est confidentiel et affiché une seule fois après génération. Le
-régénérer invalide l'ancien lien et déconnecte ses sources. Se déconnecter de
-l'administration ne coupe pas le giveaway ; changer de streamer actif déconnecte
-les sources de l'ancien streamer.
+Le lien est confidentiel. Après génération, il reste recopiable après rechargement
+dans le même onglet grâce à `sessionStorage`, si le compte et la rotation sont
+inchangés. Si ce stockage est bloqué, copiez-le avant de recharger. La déconnexion
+efface cette copie locale, mais ne coupe pas le giveaway. Perdre la copie locale
+ne révoque pas le lien dans OBS. Le régénérer invalide l'ancien lien et déconnecte
+ses sources ; changer de streamer actif déconnecte les sources de l'ancien
+streamer.
 
 Le rendu se personnalise dans le champ **CSS personnalisé** d'OBS. Éléments
 disponibles : `#giveaway`, `#lot`, `#status`, `#participants`, `#winner`,

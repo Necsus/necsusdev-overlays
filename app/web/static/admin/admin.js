@@ -6,6 +6,12 @@ const streamerAvatar = document.querySelector("#streamer-avatar");
 const avatarFallback = document.querySelector("#avatar-fallback");
 const streamerDisplayName = document.querySelector("#streamer-display-name");
 const streamerLogin = document.querySelector("#streamer-login");
+const sidebarDisplayName = document.querySelector("#sidebar-display-name");
+const sidebarLogin = document.querySelector("#sidebar-login");
+const profileAvatars = [
+  [streamerAvatar, avatarFallback],
+  [document.querySelector("#sidebar-avatar"), document.querySelector("#sidebar-avatar-fallback")],
+];
 const activeStreamer = document.querySelector("#active-streamer");
 const botLogin = document.querySelector("#bot-login");
 const chatStatus = document.querySelector("#chat-status");
@@ -15,7 +21,6 @@ const copyButtonLabel = copyOverlayUrlButton.querySelector("span");
 const copyStatus = document.querySelector("#copy-status");
 const overlayAccessBadge = document.querySelector("#overlay-access-badge");
 const overlayAccessLabel = document.querySelector("#overlay-access-label");
-const overlayRotatedAt = document.querySelector("#overlay-rotated-at");
 const rotateOverlayAccessButton = document.querySelector(
   "#rotate-overlay-access",
 );
@@ -26,7 +31,69 @@ const logoutButton = document.querySelector("#logout-button");
 const retryButton = document.querySelector("#retry-button");
 const logoutStatus = document.querySelector("#logout-status");
 
+const OVERLAY_LINK_STORAGE_KEY = "necsus:giveaway:overlay-link:v1";
 let overlayAccessConfigured = false;
+let overlayOwnerId = null;
+let cachedOverlayLink = null;
+let overlayActionVersion = 0;
+
+function parseOverlayUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.origin === window.location.origin &&
+      url.pathname === "/plugins/giveaway/overlay" &&
+      !url.username && !url.password && !url.search && url.hash.length > 1
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function discardOverlayLink() {
+  cachedOverlayLink = null;
+  overlayUrlInput.value = "";
+  overlayUrlInput.hidden = true;
+  try {
+    window.sessionStorage.removeItem(OVERLAY_LINK_STORAGE_KEY);
+  } catch {
+    // Le stockage peut être bloqué par le navigateur.
+  }
+}
+
+function restoreOverlayIdentity(ownerId) {
+  if (typeof ownerId !== "string" || !ownerId) {
+    discardOverlayLink();
+    throw new Error("Missing session identity");
+  }
+  if (overlayOwnerId === ownerId) {
+    return;
+  }
+  overlayActionVersion += 1;
+  overlayOwnerId = ownerId;
+  overlayUrlInput.value = "";
+  overlayUrlInput.hidden = true;
+  try {
+    cachedOverlayLink = JSON.parse(window.sessionStorage.getItem(OVERLAY_LINK_STORAGE_KEY));
+  } catch {
+    cachedOverlayLink = null;
+  }
+  if (cachedOverlayLink?.ownerId !== ownerId ||
+      typeof cachedOverlayLink?.rotatedAt !== "string" ||
+      !cachedOverlayLink.rotatedAt || !parseOverlayUrl(cachedOverlayLink.url)) {
+    discardOverlayLink();
+  }
+}
+
+function setOverlayCopyState(state, label) {
+  copyOverlayUrlButton.dataset.copyState = state;
+  copyOverlayUrlButton.title = label;
+  copyOverlayUrlButton.disabled = state !== "ready";
+  overlayAccessBadge.classList.toggle("status-success", state === "ready");
+  overlayAccessBadge.classList.toggle("status-danger", state === "unavailable");
+  overlayAccessBadge.classList.toggle("status-neutral", state === "pending");
+  overlayAccessLabel.textContent = label;
+}
 
 const chatStatusLabels = {
   ready: "Opérationnel",
@@ -39,16 +106,18 @@ copyOverlayUrlButton.addEventListener("click", async () => {
 
   try {
     await navigator.clipboard.writeText(overlayUrlInput.value);
-    copyButtonLabel.textContent = "Copiée";
-    copyStatus.textContent = "URL copiée dans le presse-papiers.";
+    copyButtonLabel.textContent = "Copié";
+    copyStatus.textContent = "Lien copié. Collez-le dans OBS.";
+    overlayUrlInput.hidden = true;
 
     window.setTimeout(() => {
-      copyButtonLabel.textContent = "Copier";
+      copyButtonLabel.textContent = "Copier le lien OBS";
     }, 2000);
   } catch {
+    overlayUrlInput.hidden = false;
     overlayUrlInput.focus();
     overlayUrlInput.select();
-    copyStatus.textContent = "Copie impossible. L'URL a été sélectionnée pour une copie manuelle.";
+    copyStatus.textContent = "Copiez manuellement le lien sélectionné.";
     copyStatus.classList.add("feedback-error");
   }
 });
@@ -64,9 +133,15 @@ rotateOverlayAccessButton.addEventListener("click", async () => {
     }
   }
 
+  if (!overlayOwnerId) {
+    return;
+  }
+  const ownerId = overlayOwnerId;
+  const actionVersion = ++overlayActionVersion;
+  const isCurrentAction = () => ownerId === overlayOwnerId && actionVersion === overlayActionVersion;
+  discardOverlayLink();
   rotateOverlayAccessButton.disabled = true;
-  copyOverlayUrlButton.disabled = true;
-  overlayUrlInput.value = "";
+  setOverlayCopyState("pending", "Préparation du lien…");
   copyStatus.classList.remove("feedback-error");
   copyStatus.textContent = overlayAccessConfigured
     ? "Régénération du lien sécurisé…"
@@ -84,6 +159,9 @@ rotateOverlayAccessButton.addEventListener("click", async () => {
       },
     );
 
+    if (!isCurrentAction()) {
+      return;
+    }
     if (response.status === 401) {
       showDisconnectedState();
       return;
@@ -94,33 +172,39 @@ rotateOverlayAccessButton.addEventListener("click", async () => {
     }
 
     const data = await response.json();
-
-    if (typeof data.overlay_url !== "string" || !data.overlay_url) {
-      throw new Error("Missing overlay URL");
+    if (!isCurrentAction()) {
+      return;
+    }
+    const overlayUrl = parseOverlayUrl(data.overlay_url);
+    if (!overlayUrl || typeof data.rotated_at !== "string" || !data.rotated_at) {
+      throw new Error("Invalid overlay response");
     }
 
-    const overlayUrl = new URL(data.overlay_url);
-    if (
-      overlayUrl.origin !== window.location.origin ||
-      overlayUrl.pathname !== "/plugins/giveaway/overlay" ||
-      !overlayUrl.hash
-    ) {
-      throw new Error("Invalid overlay URL");
+    cachedOverlayLink = { ownerId, rotatedAt: data.rotated_at, url: overlayUrl };
+    if (!await loadOverlayAccessStatus() || !isCurrentAction() || !cachedOverlayLink) {
+      return;
     }
 
-    await loadOverlayAccessStatus();
-
-    overlayUrlInput.value = overlayUrl.href;
-    copyOverlayUrlButton.disabled = false;
+    try {
+      window.sessionStorage.setItem(OVERLAY_LINK_STORAGE_KEY, JSON.stringify(cachedOverlayLink));
+      copyStatus.textContent = "Lien conservé dans cet onglet.";
+    } catch {
+      copyStatus.textContent = "Stockage bloqué. Copiez le lien avant de recharger.";
+    }
     copyStatus.classList.remove("feedback-error");
-    copyStatus.textContent =
-      "Nouveau lien prêt. Copiez-le maintenant : il ne sera plus affiché après rechargement.";
   } catch {
+    if (!isCurrentAction()) {
+      return;
+    }
+    discardOverlayLink();
+    setOverlayCopyState("unavailable", "Lien indisponible");
     copyStatus.textContent =
       "Impossible de générer le lien OBS. Réessayez plus tard.";
     copyStatus.classList.add("feedback-error");
   } finally {
-    rotateOverlayAccessButton.disabled = false;
+    if (isCurrentAction() && !connectedState.hidden) {
+      rotateOverlayAccessButton.disabled = false;
+    }
   }
 });
 
@@ -128,9 +212,17 @@ retryButton.addEventListener("click", () => {
   window.location.reload();
 });
 
+document.querySelector("#delete-account-button").addEventListener("click", () => {
+  document.querySelector("#delete-account-dialog").showModal();
+});
+
 logoutButton.addEventListener("click", async () => {
   logoutButton.disabled = true;
   logoutStatus.textContent = "";
+  overlayActionVersion += 1;
+  discardOverlayLink();
+  setOverlayCopyState("unavailable", "Copie locale effacée");
+  rotateOverlayAccessButton.disabled = true;
 
   try {
     const response = await fetch("/auth/logout", {
@@ -148,11 +240,16 @@ logoutButton.addEventListener("click", async () => {
     window.location.reload();
   } catch {
     logoutButton.disabled = false;
+    rotateOverlayAccessButton.disabled = false;
     logoutStatus.textContent = "Impossible de fermer la session. Réessayez plus tard.";
   }
 });
 
 function showDisconnectedState() {
+  overlayActionVersion += 1;
+  overlayOwnerId = null;
+  discardOverlayLink();
+  setOverlayCopyState("unavailable", "Session déconnectée");
   loadingState.hidden = true;
   disconnectedState.hidden = false;
   connectedState.hidden = true;
@@ -168,23 +265,29 @@ function showErrorState() {
 
 function showConnectedState(data) {
   const session = data.session;
+  restoreOverlayIdentity(session.twitch_user_id);
 
   streamerDisplayName.textContent = session.display_name;
   streamerLogin.textContent = `@${session.login}`;
+  sidebarDisplayName.textContent = session.display_name;
+  sidebarLogin.textContent = `@${session.login}`;
   chatStatus.textContent = chatStatusLabels[data.chat.status] ?? "Inconnu";
   chatStatus.dataset.status = data.chat.status;
 
-  if (session.profile_image_url) {
-    streamerAvatar.src = session.profile_image_url;
-    streamerAvatar.alt = `Avatar Twitch de ${session.display_name}`;
-    streamerAvatar.hidden = false;
-    avatarFallback.hidden = true;
-  } else {
-    streamerAvatar.removeAttribute("src");
-    streamerAvatar.alt = "";
-    streamerAvatar.hidden = true;
-    avatarFallback.hidden = false;
+  for (const [avatar, fallback] of profileAvatars) {
+    if (session.profile_image_url) {
+      avatar.src = session.profile_image_url;
+      avatar.hidden = false;
+      fallback.hidden = true;
+    } else {
+      avatar.removeAttribute("src");
+      avatar.hidden = true;
+      fallback.hidden = false;
+    }
   }
+  streamerAvatar.alt = session.profile_image_url
+    ? `Avatar Twitch de ${session.display_name}`
+    : "";
 
   if (data.active_streamer === null) {
     activeStreamer.textContent = "Aucun streamer actif";
@@ -202,52 +305,50 @@ function showConnectedState(data) {
   adminError.hidden = true;
 }
 
-streamerAvatar.addEventListener("error", () => {
-  streamerAvatar.hidden = true;
-  avatarFallback.hidden = false;
-});
+for (const [avatar, fallback] of profileAvatars) {
+  avatar.addEventListener("error", () => {
+    avatar.hidden = true;
+    fallback.hidden = false;
+  });
+}
 
 function renderOverlayAccessStatus(data) {
   overlayAccessConfigured = data.configured === true;
 
-  overlayAccessBadge.classList.toggle(
-    "status-success",
-    overlayAccessConfigured,
-  );
-  overlayAccessBadge.classList.toggle(
-    "status-neutral",
-    !overlayAccessConfigured,
-  );
+  const cachedUrl = cachedOverlayLink?.ownerId === overlayOwnerId &&
+    overlayAccessConfigured && typeof data.rotated_at === "string" &&
+    cachedOverlayLink.rotatedAt === data.rotated_at
+    ? parseOverlayUrl(cachedOverlayLink.url)
+    : null;
 
-  overlayAccessLabel.textContent = overlayAccessConfigured
-    ? "Lien configuré"
-    : "Aucun lien configuré";
-
-  rotateOverlayAccessLabel.textContent = overlayAccessConfigured
-    ? "Régénérer le lien"
-    : "Générer le lien";
-
-  if (overlayAccessConfigured && data.rotated_at) {
-    const rotatedAt = new Date(data.rotated_at);
-
-    overlayRotatedAt.textContent =
-      `Dernière rotation : ${rotatedAt.toLocaleString("fr-FR", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })}`;
+  if (cachedUrl) {
+    overlayUrlInput.value = cachedUrl;
+    setOverlayCopyState("ready", "Lien configuré");
   } else {
-    overlayRotatedAt.textContent = "Aucune clé OBS active.";
+    discardOverlayLink();
+    setOverlayCopyState(
+      "unavailable",
+      overlayAccessConfigured ? "Lien valide, copie indisponible" : "Lien à générer",
+    );
   }
 
-  overlayUrlInput.value = "";
-  copyOverlayUrlButton.disabled = true;
+  rotateOverlayAccessLabel.textContent = overlayAccessConfigured
+    ? "Régénérer"
+    : "Générer";
+
+  overlayUrlInput.hidden = true;
   rotateOverlayAccessButton.disabled = false;
 
-  copyStatus.textContent = "";
+  copyStatus.textContent = overlayAccessConfigured && !cachedUrl
+    ? "Régénérez uniquement si vous avez besoin de le recopier."
+    : "";
   copyStatus.classList.remove("feedback-error");
 }
 
 async function loadOverlayAccessStatus() {
+  const ownerId = overlayOwnerId;
+  const actionVersion = overlayActionVersion;
+  const isCurrentRequest = () => ownerId === overlayOwnerId && actionVersion === overlayActionVersion;
   try {
     const response = await fetch(
       "/api/admin/plugins/giveaway/overlay-access",
@@ -255,9 +356,13 @@ async function loadOverlayAccessStatus() {
         headers: {
           Accept: "application/json",
         },
+        cache: "no-store",
       },
     );
 
+    if (!isCurrentRequest()) {
+      return;
+    }
     if (response.status === 401) {
       showDisconnectedState();
       return;
@@ -268,10 +373,18 @@ async function loadOverlayAccessStatus() {
     }
 
     const data = await response.json();
+    if (!isCurrentRequest()) {
+      return;
+    }
     renderOverlayAccessStatus(data);
+    return true;
   } catch {
-    overlayAccessLabel.textContent = "Statut indisponible";
-    overlayRotatedAt.textContent = "Impossible de vérifier la clé OBS.";
+    if (!isCurrentRequest()) {
+      return;
+    }
+    overlayUrlInput.value = "";
+    overlayUrlInput.hidden = true;
+    setOverlayCopyState("unavailable", "Statut indisponible");
     rotateOverlayAccessButton.disabled = true;
 
     copyStatus.textContent = "Impossible de charger l’accès OBS.";
@@ -307,32 +420,25 @@ async function loadAdminSession() {
 // Navigation locale uniquement : aucun appel métier ni reconstruction des aperçus.
 function initializeAdminNavigation() {
   const pages = document.querySelectorAll("[data-admin-page]");
-  const giveawayViews = document.querySelectorAll("[data-giveaway-view]");
   const links = document.querySelectorAll("[data-admin-link]");
   const routes = new Map([
     ["account", { page: "account", heading: "account-title", title: "Compte & connexion" }],
-    ["giveaway-preview", { page: "giveaway", view: "preview", heading: "giveaway-preview-title", title: "Giveaway — Aperçu" }],
-    ["giveaway-obs", { page: "giveaway", view: "obs", heading: "overlay-title", title: "Giveaway — OBS" }],
-    ["chat", { page: "chat", heading: "chat-plugin-title", title: "Chat — Prévu" }],
+    ["giveaway", { page: "giveaway", heading: "plugin-giveaway-title", title: "Giveaway" }],
+    ["chat", { page: "chat", heading: "chat-plugin-title", title: "Chat (prévu)" }],
   ]);
 
   function showRoute(moveFocus = false) {
     const requested = window.location.hash.slice(1);
-    const routeKey = routes.has(requested) ? requested : "giveaway-preview";
+    const routeKey = routes.has(requested) ? requested : "giveaway";
     const route = routes.get(routeKey);
 
     for (const page of pages) {
       page.hidden = page.dataset.adminPage !== route.page;
     }
-    for (const view of giveawayViews) {
-      view.hidden = view.dataset.giveawayView !== route.view;
-    }
     for (const link of links) {
       const key = link.dataset.adminLink;
       if (key === routeKey) {
         link.setAttribute("aria-current", "page");
-      } else if (key === route.page) {
-        link.setAttribute("aria-current", "true");
       } else {
         link.removeAttribute("aria-current");
       }

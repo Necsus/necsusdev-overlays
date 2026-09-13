@@ -181,12 +181,40 @@ disponibles.
 
 `/admin` sépare le compte et la connexion Twitch des espaces de plugins. Une
 navigation locale par fragments d’URL sélectionne une seule vue à la fois :
-`#account`, `#giveaway-preview`, `#giveaway-obs` et `#chat`. Les boutons
+`#account`, `#giveaway` et `#chat`. Les anciens fragments Giveaway reviennent
+sur sa page unique. Les boutons
 précédent/suivant du navigateur sont pris en charge ; les vues restent dans le
-DOM afin de conserver le brouillon CSS lors d’un changement d’espace.
+DOM afin de conserver le brouillon CSS lors d’un changement d’espace. Le lien
+vers le compte dans la barre latérale affiche l’avatar, le nom et le login Twitch
+de la session, avec une icône de repli si l’avatar est absent ou ne charge pas.
+La zone d’actions du compte comprend la déconnexion et un bouton de suppression
+ouvrant une confirmation frontend uniquement. La confirmation finale est
+désactivée : aucun endpoint de suppression n’est appelé et aucune donnée n’est
+effacée.
 
-Giveaway propose un aperçu et une vue de connexion OBS, utilisant les mêmes API
-que précédemment. L’entrée Chat est uniquement une présentation « prévu » :
+Giveaway regroupe l’aperçu et les actions OBS sur une page. Les boutons de copie
+et de génération/régénération sont à droite du titre, sans texte visible dessous.
+Générer/Régénérer précède Copier. Copier est rouge et désactivé quand la copie
+est indisponible, neutre pendant le chargement, et vert quand un lien est
+copiable. Les retours d’action restent accessibles aux lecteurs d’écran ; une
+infobulle décrit l’état du bouton. La régénération conserve sa confirmation
+d’invalidation. Si le presse-papiers échoue, un champ sélectionné apparaît pour
+une copie manuelle.
+
+Le lien généré est conservé dans `sessionStorage` avec l’identité Twitch stable
+et sa date de rotation. Au rechargement, le frontend vérifie l’identité, le
+format de l’URL et la rotation courante via l’API avant d’activer Copier. Une
+rotation différente, une déconnexion ou un autre compte supprime la copie locale.
+Un stockage navigateur bloqué laisse la copie disponible dans la page courante
+uniquement. L’absence de copie locale ne signifie pas que le lien OBS est révoqué.
+
+Le POST de génération renvoie aussi `rotated_at`, issu de l’écriture qui a créé
+le lien, pour éviter de l’associer à une rotation concurrente. La base conserve
+uniquement l’empreinte du token. Le secret stocké dans l’onglet est accessible au
+JavaScript de l’origine ; ce stockage n’est pas une protection contre une XSS.
+Les restaurations ou duplications d’onglets peuvent conserver ce stockage selon
+le navigateur. Aucun `localStorage`, cookie ou journal ne reçoit le lien.
+L’entrée Chat est uniquement une présentation « prévu » :
 aucun aperçu, accès OBS ou appel d’API Chat n’est implémenté. Ajouter un plugin
 implique sa navigation et ses vues propres, sans framework de plugins générique.
 

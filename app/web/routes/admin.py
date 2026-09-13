@@ -91,7 +91,7 @@ async def rotate_giveaway_overlay_access(
     )
     async with database.access_lock:
         try:
-            await rotate_overlay_access_key(
+            rotated_at = await rotate_overlay_access_key(
                 database,
                 streamer_id=identity.twitch_user_id,
                 plugin_slug=GIVEAWAY_PLUGIN_SLUG,
@@ -107,7 +107,10 @@ async def rotate_giveaway_overlay_access(
         await overlay_connections.disconnect_streamer(identity.twitch_user_id)
     base_url = str(request.base_url).rstrip("/")
     response.headers["Cache-Control"] = "no-store"
-    return {"overlay_url": f"{base_url}/plugins/giveaway/overlay#{token}"}
+    return {
+        "overlay_url": f"{base_url}/plugins/giveaway/overlay#{token}",
+        "rotated_at": rotated_at,
+    }
 
 
 @router.get("/api/admin/plugins/giveaway/overlay-access")
