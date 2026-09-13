@@ -90,16 +90,19 @@ if [[ $assume_yes -eq 0 ]]; then
   esac
 fi
 
+BUNDLE_REF=refs/tmp/overlays-update
 bundle=$(mktemp /tmp/overlays-update.XXXXXX.bundle)
 cleanup() {
+  git -C "$DEV_ROOT" update-ref -d "$BUNDLE_REF" 2>/dev/null || true
   rm -f "$bundle"
 }
 trap cleanup EXIT
 
-git -C "$DEV_ROOT" bundle create "$bundle" "$commit"
+git -C "$DEV_ROOT" update-ref "$BUNDLE_REF" "$commit"
+git -C "$DEV_ROOT" bundle create "$bundle" "$BUNDLE_REF"
 chmod a+r "$bundle"
 
-sudo -u overlays git -C "$RELEASE_DIR" fetch --quiet "$bundle" "$commit:refs/tmp/update"
+sudo -u overlays git -C "$RELEASE_DIR" fetch --quiet "$bundle" "$BUNDLE_REF:refs/tmp/update"
 sudo -u overlays git -C "$RELEASE_DIR" checkout --detach --quiet "$commit"
 
 deployed=$(sudo -u overlays git -C "$RELEASE_DIR" rev-parse HEAD)
